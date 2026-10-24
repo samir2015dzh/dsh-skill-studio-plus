@@ -1,108 +1,157 @@
-# dsh-skill-studio
+<div align="center">
 
-> **English** | [**中文**](README.zh.md)
+  # DSH Skill Studio
 
-Visualize, edit and manage DeepSeek Harness **skills** right from the web settings panel — list every skill DSH discovered, view its full `SKILL.md`, edit the body, and enable/disable model & user invocation with a switch.
+  **Auto-distill every turn · Semantic merge · DSH-native models**
+
+  [简体中文](README.zh-CN.md) · [Features](#features) · [How merging works](#how-merging-works) · [Installation](#installation) · [Fork notes](FORK-NOTES.md)
+
+  ![License](https://img.shields.io/badge/License-MIT-blue.svg)
+  ![DSH](https://img.shields.io/badge/DSH-Plugin-0f766e.svg)
+  ![Fork](https://img.shields.io/badge/Fork-zhengjy01%2Fdsh--skill--studio-6b7280.svg)
+  ![Version](https://img.shields.io/badge/Version-0.4.0-2563eb.svg)
+</div>
+
+> A community fork of [zhengjy01/dsh-skill-studio](https://github.com/zhengjy01/dsh-skill-studio). Not an official DeepSeek AI product. Upstream provides skill browsing, editing, and manual extraction; this fork adds the four things unattended use needs: per-turn judgement, auto-accept, semantic merging, and models that follow DSH.
 
 ## Features
 
-- **Skill 管理器 settings panel** — 设置 → Skill 管理器: list every skill (name, description, source root, nested flag, model/user invocation state), open any skill to see its full body, edit the `SKILL.md` file in place, and toggle enable / model-invocable / user-invocable.
-- **skillmgr_list** — list all skills with source, nested flag and invocation state.
-- **skillmgr_get** — view one skill's full detail (body + path + policy).
-- **skillmgr_save** — save a full-body edit (frontmatter + markdown) back to the file.
-- **skillmgr_policy** — enable/disable a skill (`enabled` master switch, or per-interface `modelInvocable` / `userInvocable`).
-- **Two merged catalogs**: ① direct filesystem scan of the standard roots (project `.dsh/skills` / `.agents/skills`, user `~/.dsh/skills` / `~/.agents/skills`), expanding one level of nested bundles (e.g. `~/.agents/skills/superpowers/<name>` — flagged 嵌套/nested), plus ② the official registry (`ctx.skills`) for runtime / bundled skills. The panel therefore shows every skill on disk even when the host-plane filesystem provider is disabled (the web architecture deliberately moves local discovery to per-agent presets).
-- Enable/disable is implemented with line-level frontmatter surgery on `disable-model-invocation` / `user-invocable`; all other frontmatter lines are preserved verbatim. Saves are picked up by DSH on rediscovery.
-- Read-only safety: only skills with a real file path (filesystem sources) are editable; runtime / bundled skills are shown as read-only. Routes are loopback-only.
+Leave it running. It decides what this turn taught, which existing skill it belongs to, and whether merging would create duplicates.
 
-## Install
+- **Per-turn worth-check**: three seconds after a turn ends, it sends a tiny YES/NO prompt (10 digests from the most recent session). Only YES triggers a full extraction. Judgement is throttled to 90s, extraction to 5 minutes.
+- **Straight into the library**: accepted candidates are written to `~/.agents/skills` and load on the next turn. The review queue only fills up when a write fails (name collision and similar).
+- **Merge instead of piling up files**: each candidate is compared against the whole library. Only genuinely new topics create a new skill. Real-world check: the same workflow re-worded scores just 0.07–0.24 on token similarity, so local similarity only pre-filters — the model sees the full catalog and decides.
+- **Models come from DSH**: the panel offers a dropdown of providers/models configured in DSH; leave it empty to follow whichever session triggered the run. The plugin stores no API key and asks for no gateway URL.
+- **"Recently added" in the panel**: the Skill Studio panel lists recently touched skills with name, description, and timestamp.
+- **Clean writes**: duplicated sections are truncated, protocol residue like `MERGE:` is stripped, and any "merge" that loses a large chunk of the original is rejected.
 
-1. Add the plugin to your profile:
+## How merging works
 
-   ```sh
-   # from npm
-   dsh plugin --profile web add dsh-skill-studio
+A candidate passes four gates before it lands. Any gate that says no turns it into a new skill (or drops it, per rule).
 
-   # or from GitHub (the repo carries the `dsh-plugin` topic)
-   dsh plugin --profile web add github:zhengjy01/dsh-skill-studio
-   ```
+```
+new candidate
+  │
+  ├─ ① Tombstone: this name was merged away before (scan of ~/.dsh/skill-archive*/)
+  │     → force-merge into the same-category skill with the largest body;
+  │       if that fails, drop it — never write a duplicate again
+  │
+  ├─ ② Category tags: catalog reads "- [decompile] name: description"
+  │     → the model sees the category before the prose
+  │
+  ├─ ③ Local re-check: a FOLD_INTO verdict is verified once more
+  │     → same category: accept; cross-category: require similarity ≥ 0.5, else SAVE
+  │
+  └─ ④ The merge itself: model folds new experience into existing sections
+        → duplicate sections truncated, protocol residue stripped,
+          a result shorter than 60% of the original is refused
+```
 
-   Expected: the command prints the resolved package and records it in that
-   profile's `dsh.profile.bundles` (the host only loads plugins listed there).
+Categories are derived from the skill name (`gui-*` → gui, `decompiled-*` / `java-decompile-*` → decompile, `portable-*` / `offline-*` → portable, …). `CATEGORY_ALIASES` lives in `lib/extractor.js`; one line extends it.
 
-   > **Screenshot slot 1 — install output.** Capture the terminal right after the
-   > command, last ~10 lines (resolved package + profile path). Redact your
-   > username / home path if it appears. Save as
-   > `docs/images/dsh-skill-studio-1-install.png`, then replace this block with
-   > `![Install output](docs/images/dsh-skill-studio-1-install.png)`.
+## Installation
 
-2. Restart `dsh web` (or use the sidebar **重启 / Restart** entry if the
-   `dsh-restart` plugin is installed).
+The plugin is installed into the DSH profile with a `link:`, so code edits need no republish.
 
-   Expected: the host boots with `dsh-skill-studio` in its plugin list. There is
-   no build step — `lib/` is plain ESM.
+1. Clone anywhere:
 
-3. Open the Web GUI → **设置 (Settings)** → **Skill 工作台**.
+```bash
+git clone <this-repo> D:/dsh-plugins/dsh-skill-studio
+```
 
-   Expected: the settings nav shows the "Skill 工作台" entry, and the panel lists
-   every discovered skill with a source badge and its invocation state.
+2. Register it in the profile `package.json`:
 
-   > **Screenshot slot 2 — panel is live.** Capture the settings nav (entry
-   > visible) plus the panel header and list. Redact any skill names you consider
-   > private. Save as `docs/images/dsh-skill-studio-2-panel.png`.
+```json
+{
+  "dependencies": { "dsh-skill-studio": "link:D:/dsh-plugins/dsh-skill-studio" },
+  "dsh": { "profile": { "bundles": ["dsh-skill-studio"] } }
+}
+```
 
-## Usage
+3. Junction it into `node_modules`:
 
-1. Click a skill in the list.
+```powershell
+New-Item -ItemType Junction `
+  -Path "$env:DSH_PROFILE_DIR\node_modules\dsh-skill-studio" `
+  -Target "D:\dsh-plugins\dsh-skill-studio"
+```
 
-   Expected: the detail view shows that skill's body plus its source and path.
+4. Restart DSH and open **Settings → Skill Studio**.
 
-2. Edit the body in the textarea, then click **保存 / Save**.
+## Configuration
 
-   Expected: the panel reports a successful write, and the skill's `SKILL.md` on
-   disk now contains your text.
+Config file: `~/.dsh/dsh-skill-studio/extractor.json` (mode 0600).
 
-   > **Screenshot slot 3 — editing works.** Capture the detail view with the
-   > editor open; use a non-sensitive skill (or blur its content). Save as
-   > `docs/images/dsh-skill-studio-3-edit.png`.
+```json
+{
+  "enabled": true,
+  "autoPerTurn": true,
+  "intervalMinutes": 60,
+  "windowDays": 7,
+  "maxCandidatesPerRun": 3,
+  "autoAccept": true,
+  "mergeThreshold": 0.2,
+  "skillLanguage": "auto",
+  "agentSkillDir": "C:\\Users\\<you>\\.agents\\skills",
+  "provider": "",
+  "model": ""
+}
+```
 
-3. Flip the **启用 / 模型可调用 / 用户可调用** switches.
+| Key | Purpose |
+| --- | --- |
+| `autoPerTurn` | Run the YES/NO judgement at the end of every turn |
+| `intervalMinutes` | Fallback sweep interval; `0` disables it and relies on per-turn only |
+| `autoAccept` | Write straight into the library instead of the review queue |
+| `mergeThreshold` | Local similarity pre-filter (the merge decision itself is the model's) |
+| `skillLanguage` | `auto` / `zh` / `en`; code, commands, and paths are never translated |
+| `provider` / `model` | Empty = follow the session; or pick one in the panel |
 
-   Expected: the row's state changes immediately and stays changed after a
-   refresh (the switch writes `disable-model-invocation` /
-   `user-invocable` into the frontmatter).
+The legacy `llmBaseUrl` / `llmApiKey` / `llmModel` fields still work as an HTTP fallback for hosts without `ctx.llm`. Leave them empty in normal use.
 
-   > **Screenshot slot 4 — switches take effect.** Capture the list row with one
-   > switch off, then the same row after a page refresh. Save as
-   > `docs/images/dsh-skill-studio-4-switches.png`.
+## Tools
 
-4. Or just tell your agent:
+| Tool | Purpose |
+| --- | --- |
+| `skillmgr_list` | List every skill with source, state, and group |
+| `skillmgr_get` | Read one skill in full |
+| `skillmgr_save` | Write a whole SKILL.md back |
+| `skillmgr_policy` | Toggle model/user invocation |
+| `skillmgr_extract_run` | Run one extraction now |
+| `skillmgr_extract_status` | Switches, interval, queue depth, last run |
+| `skillmgr_extract_config` | Change configuration |
+| `skillmgr_extract_list` / `_accept` / `_reject` | Work the queue (usually empty with auto-accept on) |
 
-   ```text
-   列出所有 skill，并告诉我哪些被禁用了
-   帮我禁用 session-knowledge 技能
-   ```
+HTTP routes live under `/api/dsh-skill-studio/*` — that is what the panel talks to.
 
-   Expected: the agent answers through the `skillmgr_*` tools.
+## Debugging
 
-### Screenshots to add
+Every model response is dumped to:
 
-| # | Where | What it shows | How to capture | Suggested filename |
-| --- | --- | --- | --- | --- |
-| 1 | Install | The install command's output (package + profile) | Terminal right after step 1, last ~10 lines; redact home path | `docs/images/dsh-skill-studio-1-install.png` |
-| 2 | Install | The panel open in Settings with the skill list | Settings → Skill 工作台; include the nav entry | `docs/images/dsh-skill-studio-2-panel.png` |
-| 3 | Usage | Editing a skill body and saving | Detail view with the textarea open; use a non-sensitive skill | `docs/images/dsh-skill-studio-3-edit.png` |
-| 4 | Usage | The three switches after a refresh | Same row before/after refresh | `docs/images/dsh-skill-studio-4-switches.png` |
+```
+~/.dsh/dsh-skill-studio/last-llm-raw.txt
+```
 
-After adding the images, re-run `npm pack --dry-run` and the portability gate
-(`npm run verify`) — the README is part of the published tarball.
+When parsing fails, read that file first: truncated JSON, markdown fences, or an off-topic answer are immediately distinguishable.
 
-## Notes
+Two regression scripts, neither touches the real library:
 
-- The frontmatter `name` key must match the skill name (kebab-case); breaking the frontmatter format may cause DSH to skip the skill on rediscovery.
-- Editing is scoped to files the skill registry reports; the plugin never accepts arbitrary paths.
-- Zero runtime dependencies beyond the DSH peer packages.
+```bash
+node scripts/e2e-preview.mjs    # extract → judge → merge → accept, 6 assertions
+node scripts/e2e-tombstone.mjs  # tombstone beats the model's verdict (it says SAVE, then KEEP)
+```
+
+## Differences from upstream
+
+The full list is in [FORK-NOTES.md](FORK-NOTES.md) (15 entries). Highlights:
+
+1. Model calls go through `ctx.llm.prepareCall()`; no stored credentials
+2. Per-turn YES/NO judgement, auto-accept into the library
+3. Semantic merging: category tags, model verdict, local re-check, tombstones
+4. Merge hygiene: dedupe, residue stripping, short-body rejection
+5. Panel: "recently added" list and a model dropdown
+6. Truncation salvage for extraction output, `maxTokens` raised to 8000
 
 ## License
 
-MIT
+MIT, same as upstream. Upstream copyright belongs to zhengjy01.

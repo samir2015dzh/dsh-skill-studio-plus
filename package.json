@@ -1,7 +1,7 @@
 {
   "name": "dsh-skill-studio",
-  "version": "0.3.1",
-  "description": "Skill studio for DeepSeek Harness: visualize all agent skills, view/edit their SKILL.md bodies, toggle model/user invocation, and mine session logs to extract reusable personal skills (auto-loadable by the agent) — from the web settings panel (Skill 工作台) and via skillmgr_* / skillmgr_extract_* tools",
+  "version": "0.4.0",
+  "description": "Skill studio for DeepSeek Harness with self-improving pipeline: per-turn worth judgement, auto-accept into the skill library, semantic merging with category tags + model verdict + tombstone guard, and model calls routed through DSH (no stored API key).",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -51,12 +51,16 @@
     "studio",
     "extract",
     "extractor",
-    "session"
+    "session",
+    "auto-extract",
+    "semantic-merge",
+    "dedupe",
+    "auto-accept"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zhengjy01/dsh-skill-studio.git"
+    "url": "git+https://github.com/samir2015dzh/dsh-skill-studio-plus.git"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
@@ -74,5 +78,6 @@
   },
   "devDependencies": {
     "@deepseek-ai/dsh-tools": "0.1.5-rc.1"
-  }
+  },
+  "homepage": "https://github.com/samir2015dzh/dsh-skill-studio-plus#readme"
 }
