@@ -6,6 +6,29 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-24
+
+### 新增
+
+- 每轮对话结束先做 YES/NO 判定（小 prompt），值得才跑完整提取；判定 90 秒节流、提取 5 分钟节流
+- 提取结果自动写入 `~/.agents/skills`（`autoAccept`），写入失败才进候选队列
+- 语义合并四道闸：墓碑拦截、类别标签、`FOLD_INTO` 本地复核、合并卫生
+- 面板新增「最近添加的 skills」列表（名字 + 描述 + 时间）与模型下拉
+- 提取输出被截断时逐个抢救完整候选（`salvageCandidates`）
+
+### 变更
+
+- 模型调用改走 `ctx.llm.prepareCall()`，插件不再保存 API key；`llmBaseUrl` / `llmApiKey` / `llmModel` 降级为 HTTP 回退
+- 面板移除网关地址与密钥输入框，`intervalMinutes` 标注为「兜底」
+- `skillLanguage` 新增 `auto`（跟随会话），三种模式都明确代码与命令不翻译
+- 合并结果自动去重复章节、切 `MERGE:` 协议残渣、拦截短正文覆盖
+- 提取 `maxTokens` 4000 → 8000，prompt 限制正文 600–800 字
+
+### 移除
+
+- `README.zh.md`（并入 `README.zh-CN.md`）
+
+
 ## [0.3.1] - 2026-09-29
 
 ### 兼容性
