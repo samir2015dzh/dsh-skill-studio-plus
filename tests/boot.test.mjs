@@ -2,12 +2,14 @@
 import { mkdtempSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pluginRoot = path.resolve(__dirname, "..");
-const m = await import(path.join(pluginRoot, "lib/index.js"));
-const scanner = await import(path.join(pluginRoot, "lib/scanner.js"));
+// Windows 上 import() 不接受裸盘符路径，必须转成 file:// URL
+const modUrl = (rel) => pathToFileURL(path.join(pluginRoot, rel)).href;
+const m = await import(modUrl("lib/index.js"));
+const scanner = await import(modUrl("lib/scanner.js"));
 
 const { splitFrontmatter, applyPolicy, assembleFile, saveSkill, savePolicy, listSkills, getSkillDetail } = m;
 const { parseSkillFile, scanSkills, findSkillByName } = scanner;
@@ -173,7 +175,7 @@ console.log("\n[5] 客户端面板分组渲染");
 {
   let captured = null;
   globalThis.window = { __ModuleLoader__: { load: (mod) => { captured = mod; } } };
-  await import(path.join(pluginRoot, "lib/client.js"));
+  await import(modUrl("lib/client.js"));
   assert(captured && typeof captured.factory === "function", "client bundle 经 window.__ModuleLoader__.load 注册");
 
   const sampleSkills = [

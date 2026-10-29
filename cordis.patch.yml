@@ -12,3 +12,9 @@
       config:
         announceToAgent: true   # 在系统提示中公告插件（工具 + 能力说明）
         enabled: true           # 插件总开关
+        darwin:                 # 原 dsh-darwin-auto 插件的配置，已并入
+          enabled: true
+          sweepHours: 24        # 巡检间隔
+          staleDays: 14         # 超过这么多天没体检记录就进巡检清单
+          sweepLimit: 5
+          familyRefreshDays: 7  # families.json 过期多少天后用 LLM 重聚；0 关闭自动重聚

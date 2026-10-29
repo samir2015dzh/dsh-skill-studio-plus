@@ -284,3 +284,28 @@ oom-real-heap 3336→1689、handoff、agent-handoff-review-report 二轮）。
 
 同时归档了 `agent-handoff-review-report`（3042 字符）—— 与 `handoff` 语义完全重复
 （desc 一个中文一个英文，Jaccard 只有 0.041，正是本地相似度失效的又一例）。
+
+## 16. 受保护 skill 不进合并池（2026-10-26）
+
+手工维护的 skill（有自己脚本、实测数据、需要人改正文的那种）被自动提取合并进去就等于被覆盖：
+`writeSkill()` 重建 frontmatter 只写 `name` + `description`，`metadata` 等自定义字段会丢。
+
+两种标记，任一命中即受保护：
+
+- SKILL.md frontmatter 里 `protected: true`（通常写在 `metadata:` 下）
+- skill 目录里有 `.no-merge` 标记文件（frontmatter 会被改写、标记文件不会）
+
+`lib/extractor.js` 四处改动：
+
+1. `buildSkillIndex()` 给条目加 `protected` 标记（两种标记任一即可）
+2. `bestMatches()` 过滤掉受保护项 —— 本地相似度兜底路径选不中它
+3. `judgePlacement()` 的候选清单过滤掉受保护项 —— 模型裁决看不到它，无法 `FOLD_INTO`
+4. `tryMerge()` 开头 `hit?.protected` 时直接返回 null —— 兜底，任何路径都不改它正文
+
+受保护项**留在索引里**，所以同名候选照旧被 `existing` 去重挡住（不会写第二份）。
+接受候选走 `writeSkillDual()` 不带 `force`，同名同样被拒。
+
+首个使用点：`~/.agents/skills/meeting-audio-to-minutes`（录音转文字 → 会议纪要）。
+
+回滚：`lib/extractor.js.bak-nomerge-20261026`。改完要重启 DSH 才生效（模块在启动时加载）。
+

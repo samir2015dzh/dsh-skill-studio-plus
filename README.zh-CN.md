@@ -9,7 +9,7 @@
   ![License](https://img.shields.io/badge/License-MIT-blue.svg)
   ![DSH](https://img.shields.io/badge/DSH-Plugin-0f766e.svg)
   ![Fork](https://img.shields.io/badge/Fork-zhengjy01%2Fdsh--skill--studio-6b7280.svg)
-  ![Version](https://img.shields.io/badge/Version-0.4.0-2563eb.svg)
+  ![Version](https://img.shields.io/badge/Version-0.5.0-2563eb.svg)
 </div>
 
 > 本仓库是 [zhengjy01/dsh-skill-studio](https://github.com/zhengjy01/dsh-skill-studio) 的社区 fork，不是 DeepSeek AI 官方产品。上游提供 skill 可视化、编辑与手动提取；本 fork 在其之上补上「无人值守」需要的四件事：每轮判断、自动入库、语义合并、模型跟随 DSH。
@@ -24,6 +24,7 @@
 - **模型跟随 DSH**：面板下拉列出你 DSH 里配置的 provider/model，留空就跟随触发这次提取的会话。插件自己不再存 API key，也不再要求填网关地址。
 - **面板看「最近添加」**：技能工作台列出最近改动过的 skill（名字 + 描述 + 时间），一眼看到它这两天自己学了什么。
 - **写进去的内容是干净的**：合并时自动去掉模型重复抄写的章节，切掉 `MERGE:` 这类协议残渣，拦住比原文短一大截的覆盖。
+- **skill 体检**：写出一个 `SKILL.md` 后，下一轮自动把它推给 `darwin-skill` 按 9 维 rubric 体检。同族重复项按 `~/.dsh/darwin-auto/families.json` 折叠到一个宿主，表由插件自己的模型通道定期重聚（0.5.0 起并入了原 `dsh-darwin-auto` 插件）。
 
 ## 合并怎么工作
 

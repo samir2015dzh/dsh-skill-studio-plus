@@ -1,6 +1,6 @@
 {
   "name": "dsh-skill-studio",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Skill studio for DeepSeek Harness with self-improving pipeline: per-turn worth judgement, auto-accept into the skill library, semantic merging with category tags + model verdict + tombstone guard, and model calls routed through DSH (no stored API key).",
   "type": "module",
   "main": "lib/index.js",

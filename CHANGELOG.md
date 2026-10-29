@@ -6,6 +6,24 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-29
+
+### 新增
+
+- 并入独立插件 `dsh-darwin-auto`：写入 SKILL.md 后自动把 `darwin-skill` 推到模型面前，按 9 维 rubric 体检（`lib/darwin.js`）
+- 同族去重：按 `~/.dsh/darwin-auto/families.json` 把同族重复 skill 折叠到宿主，成员不再重复送审；表缺失时行为与旧版一致
+- 借插件已有的 `llm` 服务自动生成族谱（`familyRefreshDays` 控制过期天数，0 关闭），不再依赖模型手工维护
+
+### 变更
+
+- 状态文件沿用 `~/.dsh/darwin-auto/state.json`，`seen` / `scores` 无缝继承，不会全量重扫
+- 配置入口搬到 `cordis.patch.yml` 的 `config.darwin` 段
+- `tests/boot.test.mjs` 改用 `pathToFileURL`，修掉 Windows 上动态 import 裸盘符路径的报错
+
+### 移除
+
+- profile 里的 `dsh-darwin-auto` 依赖与 bundle 条目；源目录保留作回滚点
+
 ## [0.4.0] - 2026-10-24
 
 ### 新增

@@ -3,3 +3,10 @@ node_modules/
 *.log
 .DS_Store
 .knowledge-base/
+.bak-*/
+*.bak-*
+.git.broken-*/
+# 本机一次性脚本：硬编码本机绝对路径与单次数据，不进仓库
+scripts/darwin-log.mjs
+scripts/darwin-round*.mjs
+scripts/fix-*.mjs

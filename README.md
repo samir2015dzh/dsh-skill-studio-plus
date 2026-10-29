@@ -9,7 +9,7 @@
   ![License](https://img.shields.io/badge/License-MIT-blue.svg)
   ![DSH](https://img.shields.io/badge/DSH-Plugin-0f766e.svg)
   ![Fork](https://img.shields.io/badge/Fork-zhengjy01%2Fdsh--skill--studio-6b7280.svg)
-  ![Version](https://img.shields.io/badge/Version-0.4.0-2563eb.svg)
+  ![Version](https://img.shields.io/badge/Version-0.5.0-2563eb.svg)
 </div>
 
 > A community fork of [zhengjy01/dsh-skill-studio](https://github.com/zhengjy01/dsh-skill-studio). Not an official DeepSeek AI product. Upstream provides skill browsing, editing, and manual extraction; this fork adds the four things unattended use needs: per-turn judgement, auto-accept, semantic merging, and models that follow DSH.
@@ -24,6 +24,7 @@ Leave it running. It decides what this turn taught, which existing skill it belo
 - **Models come from DSH**: the panel offers a dropdown of providers/models configured in DSH; leave it empty to follow whichever session triggered the run. The plugin stores no API key and asks for no gateway URL.
 - **"Recently added" in the panel**: the Skill Studio panel lists recently touched skills with name, description, and timestamp.
 - **Clean writes**: duplicated sections are truncated, protocol residue like `MERGE:` is stripped, and any "merge" that loses a large chunk of the original is rejected.
+- **Skill health checks**: writing a `SKILL.md` queues it for a `darwin-skill` review on the next turn. Duplicate families are folded onto one host through `~/.dsh/darwin-auto/families.json`; the table regenerates itself through the plugin's own LLM route (merged in 0.5.0, previously the separate `dsh-darwin-auto` plugin).
 
 ## How merging works
 
