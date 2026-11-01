@@ -309,3 +309,52 @@ oom-real-heap 3336→1689、handoff、agent-handoff-review-report 二轮）。
 
 回滚：`lib/extractor.js.bak-nomerge-20261026`。改完要重启 DSH 才生效（模块在启动时加载）。
 
+
+## 17. 「记住」做成对话内确认，并按类型分流（2026-11-01）
+
+用户说「记住 X」原来完全没有专门通道：判定 prompt 只认「新技术 / 踩坑恢复 / 可复用工作流」三类，
+一条偏好或一条事实大概率被判 NO，等于没说。
+
+### 三层修正
+
+**① 只认用户说的**
+
+`shouldExtract()` 原来扫整个会话摘要，助手在解释机制时会反复提到「记住」，会被自己触发。
+现在先按角色过滤，只扫 `- 用户：` 开头的行：
+
+```js
+const userLines = digest.split("\n").filter((l) => l.startsWith("- 用户：")).join("\n");
+const rememberLine = userLines.split("\n").find((l) => REMEMBER_HINT.test(l));
+if (rememberLine !== undefined) {
+  return { worth: true, remember: true, rememberText: rememberLine.replace(/^- 用户：/, "").trim() };
+}
+```
+
+关键词：`记住|记一下|记下来|以后都用|以后都按|下次也这|下次也按|按这个来|别忘了|不要忘`。
+摘要窗口同时从 10 条放宽到 20 条。
+
+**② 不在后台静默生成，改成下一轮主动问**
+
+命中后不提取，把用户原话写进 `~/.dsh/dsh-skill-studio/pending-remember.json`；
+下一轮 `system-prompt/assemble` 读出来注入一条确认请求，注入后立刻把文件写成 `{}` —— 只问一次。
+
+`shouldExtract` 的返回值从 boolean 改成 `{ worth, remember, rememberText }`，
+调用链 `judgeThenExtract → extractIfDue → runExtract → runExtraction` 全程透传，
+`runExtraction` 的 `forceReview` 可在需要时绕过 autoAccept。
+
+**③ 按类型分流，不是一律写成 skill**
+
+| 内容类型 | 落点 | 生效方式 |
+|---|---|---|
+| 方法 / 流程（「专题会该怎么写」） | skill | 提到相关场景时才加载 |
+| 偏好 / 规矩（「回答先给结论」） | `~/.dsh/AGENTS.md` | 每轮常驻 |
+| 事实 / 环境（「这台机器 JDK 是 8」） | 记忆库 retain | 检索时取回 |
+
+类型明确的直接落位并告知用户，不问；只有类型模糊的才问。
+
+### 踩到的两个编码坑
+
+- `extractor.js` / `index.js` 是 **CRLF**，多行锚点用 `\n` 拼接永远匹配不到 —— 只改单行，或者用 `\r\n` 拼锚点。
+- PowerShell here-string 里 `` `r `` → CR、`` `a `` → BEL，会把 `` `run.bat` `` 吃成 `un.bat`。
+  写含反引号的内容一律用脚本文件 + `write`，不要用 `@"..."@`。
+

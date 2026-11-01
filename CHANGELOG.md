@@ -6,6 +6,22 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-01
+
+### 新增
+
+- emember 通道：用户说「记住 X」时，判定直接放行（只认 - 用户： 行，助手的话不算）
+- 命中后不静默生成，下一轮 system-prompt 注入确认请求，主动问用户落点
+- 按类型分流：方法→skill、偏好→AGENTS.md、事实→记忆库；类型明确的直接落位不问
+
+### 变更
+
+- shouldExtract() 返回 { worth, remember, rememberText }，调用链全程透传
+- unExtraction() 新增 orceReview，可绕过 autoAccept
+- 摘要窗口 10 → 20 条
+- 提取 prompt 增加「用户明确要求记住的内容」为第一优先级
+
+
 ## [0.5.0] - 2026-10-29
 
 ### 新增
