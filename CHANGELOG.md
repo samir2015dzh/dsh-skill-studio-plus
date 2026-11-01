@@ -6,18 +6,24 @@
 
 ## [Unreleased]
 
+### 修复
+
+- `savePendingRemember()` 写 `pending-remember.json` 前补 `mkdir(dirname(...), { recursive: true })`：目标目录 `~/.dsh/dsh-skill-studio` 不存在时，首次「记住」会静默失败
+- `extractIfDue()` 调用点移除恒为 `false` 的 `forceReview` 实参（`remember` 分支已提前 return，实参永远取不到 `true`）
+- 0.5.1 段落修复文字损坏：`Remember` 缺首字母、反引号丢失；`forceReview` 的 `f` 变成控制字符 U+000C（`\f` 转义），`runExtraction()` 的 `r` 被当成回车吃掉 —— 说明写 CHANGELOG 的环节做过一次 C 风格转义
+
 ## [0.5.1] - 2026-11-01
 
 ### 新增
 
-- emember 通道：用户说「记住 X」时，判定直接放行（只认 - 用户： 行，助手的话不算）
+- Remember 通道：用户说「记住 X」时，判定直接放行（只认 `- 用户：` 行，助手的话不算）
 - 命中后不静默生成，下一轮 system-prompt 注入确认请求，主动问用户落点
 - 按类型分流：方法→skill、偏好→AGENTS.md、事实→记忆库；类型明确的直接落位不问
 
 ### 变更
 
 - shouldExtract() 返回 { worth, remember, rememberText }，调用链全程透传
-- unExtraction() 新增 orceReview，可绕过 autoAccept
+- runExtraction() 新增 forceReview，可绕过 autoAccept
 - 摘要窗口 10 → 20 条
 - 提取 prompt 增加「用户明确要求记住的内容」为第一优先级
 
