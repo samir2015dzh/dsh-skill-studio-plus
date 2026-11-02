@@ -15,6 +15,11 @@
   `mcp --transport stdio`）。现在块式与一行式都能解析
 - MCP.md 与实现对齐：起始版本 0.5.1 → 0.6.0；工具数 4 → 5（补 `mcp_takeover`）；
   已知限制补「自动导入扫哪三层」与「插件自封装 MCP 不会被导入」
+- 连接与列工具超时独立于工具调用超时：`McpConnection` 新增 `connectTimeoutMs`（默认 30s，
+  `ensure` 里取 `min(toolCallTimeoutMs, 45s)`），握手与 `tools/list` 用它，`tools/call` 仍走
+  `toolCallTimeoutMs`。此前握手沿用 900s，服务器起不来时面板会冻住十几分钟
+- 面板忙状态按服务器隔离：`busy` 改为 `busyKey`（记录正在操作的服务器名），档位胶囊与
+  重载 / 接管 / 删除按钮、工具过滤只在自己那台忙时禁用，一台连不上不再锁住整个面板
 
 
 ## [0.6.0] - 2026-11-02
