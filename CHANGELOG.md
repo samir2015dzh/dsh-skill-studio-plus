@@ -6,6 +6,17 @@
 
 ## [Unreleased]
 
+### 修复
+
+- 启动自动导入漏扫 `DSH_HOME/cordis.patch.yml`（全局层）：只扫了 profile 与 bundle 两层，
+  写在这个文件里的 MCP（例如 rea）在 `mcp_list` 里看不到。现在三层都扫
+- `parseMcpRows()` 丢失块式 `args`：`args:` 换行后一行一个 `- 元素` 的写法整段没被收，
+  导入的条目 `args` 恒为 `[]`，按需加载时会用空参数起进程（rea 少 `mcp`、metis-reverse 少
+  `mcp --transport stdio`）。现在块式与一行式都能解析
+- MCP.md 与实现对齐：起始版本 0.5.1 → 0.6.0；工具数 4 → 5（补 `mcp_takeover`）；
+  已知限制补「自动导入扫哪三层」与「插件自封装 MCP 不会被导入」
+
+
 ## [0.6.0] - 2026-11-02
 
 ### 新增

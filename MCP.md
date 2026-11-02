@@ -1,6 +1,6 @@
 # MCP 按需加载（studio 内置）
 
-`dsh-skill-studio` 0.5.1 起自带 MCP 管理，参照 MCP-cell（luohui1/MCP-cell）的进程思路和
+`dsh-skill-studio` 0.6.0 起自带 MCP 管理，参照 MCP-cell（luohui1/MCP-cell）的进程思路和
 dsh-skill-mcp-manager 的目录化思路：**会话开头只给名字 + 截断描述，完整 schema 等真正要用再取**。
 
 ## 三档
@@ -14,13 +14,15 @@ dsh-skill-mcp-manager 的目录化思路：**会话开头只给名字 + 截断�
 省的是**每轮系统提示里的工具 schema**。实测：一个 95 工具的 MCP 走 eager 大约 33K token/轮，
 走 on-demand 只剩十几行目录。
 
-## 四个工具
+## 五个工具
 
 - `mcp_list` — 档位、连接状态、工具数与截断描述。
 - `mcp_register {name, tier, transport, command|url, args, env, headers, notes}` — 新增或修改。
   **先试连 + 拉一次工具列表**，通过才写注册表。
 - `mcp_load {name, peek?}` — 建立连接并返回完整 `inputSchema`；`peek` 只读缓存不连接。
 - `mcp_call {name, tool, args}` — 调用；on-demand 会按需连接，被回收过的会先重连。
+- `mcp_takeover {name}` — 接管 profile 里已有的原生 MCP：禁用 `cordis.patch.yml` 里那条行，
+  改由本插件按需加载。需要重启 DSH 才生效。
 
 ## 空闲回收
 
@@ -66,6 +68,11 @@ skill 列表刷新不会带着 MCP 面板重建）。布局照 MCP-cell：统计
 - 单例连接（不是按会话隔离）：桌面版单用户，换来的复杂度不值得；要隔离请装 dsh-skill-mcp-manager。
 - 无 OAuth 2.0：streamable-http 只支持静态 headers。需要 OAuth 的服务器请继续用原生 mcp-client 条目。
 - 重连是「用到时重连」，没有指数退避；连不上会直接把错误抛给调用方。
+- 启动时的自动导入扫三层 patch：`DSH_HOME/cordis.patch.yml`（全局层）、profile 的
+  `cordis.patch.yml`、每个 bundle 的 `cordis.patch.yml`。写在前两层的手工 MCP 才会被认出来。
+- 插件自己封装 MCP 的条目（如 `dsh-computer-use-win` → `mcp__wincu__*`）不会被自动导入：
+  它的 patch 行 `name` 是插件包名，`serverName` 在插件 JS 里，静态扫描认不出来。
+  这类要么在注册表里手动 `mcp_register`，要么继续用原生行。
 
 ## 验证
 
