@@ -123,6 +123,21 @@ New-Item -ItemType Junction `
 
 HTTP 路由挂在 `/api/dsh-skill-studio/*`，面板用的就是它们。
 
+## MCP 按需加载
+
+设置页「MCP 服务器」：把 DSH 里已有的 MCP 收进面板，按需加载、空闲回收、可视化白名单。
+
+- 三档：**启用**（工具直接注册成 `mcp__<server>__<tool>`）/ **按需启用**（只进目录，用时 `mcp_load`）/ **停用**
+- 目录里只有「服务器名 + 每个工具的名字和截断描述」，完整 schema 要 `mcp_load` 才取，调用走 `mcp_call`
+- 空闲 N 分钟（默认 5，可改）没有任何工具调用就断开上游（stdio 子进程退出 / HTTP 会话关闭），工具缓存保留，下次调用透明重连
+- 每行点「工具 N/M」展开完整工具清单，勾选决定对外可见的那批，改完即时生效——不用重启 DSH，也不用重启上游
+- 启动时自动扫 profile 与各 bundle 的 `cordis.patch.yml`，把 `@deepseek-ai/dsh-mcp-client` 条目抄进面板（停用档，不连接）；点「接管」才禁用原生条目，重启后由本插件接管
+
+工具：`mcp_list` / `mcp_register` / `mcp_load` / `mcp_call` / `mcp_takeover`。
+
+配置位置 `~/.dsh/dsh-skill-studio/mcp.json`，HTTP 路由在 `/api/dsh-skill-studio/mcp*`。
+详细配置、字段说明与已知限制见 [MCP.md](./MCP.md)。
+
 ## 调试
 
 每次调模型的原始输出会留在：

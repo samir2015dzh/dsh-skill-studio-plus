@@ -10,3 +10,5 @@ node_modules/
 scripts/darwin-log.mjs
 scripts/darwin-round*.mjs
 scripts/fix-*.mjs
+# 一次性补丁脚本（改动已落进 lib/，脚本只作本地记录）
+_patch-*.mjs

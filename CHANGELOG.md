@@ -6,11 +6,37 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-02
+
+### 新增
+
+- MCP 按需加载（`lib/mcp.js`、`lib/mcp-client.js`）：三档（启用 / 按需启用 / 停用），
+  目录只暴露服务器名与截断描述，完整 schema 由 `mcp_load` 现取，调用走 `mcp_call`
+- 零依赖 MCP 客户端：stdio 按行 JSON-RPC、streamable-http 支持 JSON 与 SSE 两种响应
+- 空闲回收：超过 `idleTimeoutMinutes`（默认 5，`0` 关闭）没有工具调用就断开上游，
+  工具缓存与注册表保留，下次调用透明重连
+- 工具白名单：每台服务器可设 `toolFilter`（`all` / `allow` / `deny` + 名单），
+  目录与 `mcp_call` 入口同时生效
+- 自动导入：启动时扫 profile 与各 bundle 的 `cordis.patch.yml`，把
+  `@deepseek-ai/dsh-mcp-client` 条目抄进注册表（停用档）；「接管」才会禁用原生条目
+- 设置页新增独立一页「MCP 服务器」（`settings.section`，order 301）：统计条、
+  状态点（绿=已接管 / 灰=未接管）、档位胶囊、工具清单勾选
+
+### 变更
+
+- Skill 工作台重做成与 MCP 面板同一套语言：统计条、统一行卡、单行省略描述，
+  会话提取设置折叠为一行
+- 会话提取表单按「开关 / 调度 / 输出位置 / 模型」四组重排
+
 ### 修复
 
 - `savePendingRemember()` 写 `pending-remember.json` 前补 `mkdir(dirname(...), { recursive: true })`：目标目录 `~/.dsh/dsh-skill-studio` 不存在时，首次「记住」会静默失败
 - `extractIfDue()` 调用点移除恒为 `false` 的 `forceReview` 实参（`remember` 分支已提前 return，实参永远取不到 `true`）
 - 0.5.1 段落修复文字损坏：`Remember` 缺首字母、反引号丢失；`forceReview` 的 `f` 变成控制字符 U+000C（`\f` 转义），`runExtraction()` 的 `r` 被当成回车吃掉 —— 说明写 CHANGELOG 的环节做过一次 C 风格转义
+- `!!js "'…' + process.env.PATH"` 这类动态 env 现在拆出字面量前缀存 `envPrefix`，
+  连接时拼到父进程同名变量前，不再整条跳过
+- 块式 `headers` 的子项以前被当成无关行丢弃（hindsight 因此 401），现在按缩进收进对象
+- Node 的 happy-eyeballs 会让 fetch 先试不通的 IPv6 再超时，钉成 `ipv4first`
 
 ## [0.5.1] - 2026-11-01
 
