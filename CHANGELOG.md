@@ -16,6 +16,9 @@
 - eager 档改为以活连接为数据源：`buildEagerTools` 用 `runtime.cachedTools()` 判空而不是
   `visibleTools()`，否则注册表里的瘦缓存一旦非空就不会去连，`inputSchema` 缺失导致 eager
   工具参数全部退化成 `{}`；同理 `warmCatalog` 不再把瘦缓存塞进 `runtime.slot`
+- `skillmgr_list` 补回 `dir` 字段：`fsToSummary()` 从 0.7.0 起带上技能目录，但输出 schema 的
+  `items` 是 `additionalProperties: false` 且没声明 `dir`，宿主校验直接判整个调用失败
+  （`value.skills[0].dir is not a declared property`），插件最常用的列表工具全线不可用
 
 ## [0.7.0] - 2026-11-04
 
