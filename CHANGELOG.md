@@ -4,6 +4,19 @@
 > 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 > 说明：0.2.0 及更早的条目依据 git 历史与 npm 发布时间回填。
 
+## [Unreleased]
+
+### 修复
+
+- MCP 注册表瘦身：工具缓存落盘只留 `name` + 截断描述（200 字），完整 `inputSchema` 不再写进
+  `mcp.json`。此前 `warmCatalog` / `prefetchTools` / `mcp_register` / `mcp_load` 都把
+  `listTools()` 的原始返回整体 upsert，229 个 REA 工具能把注册表撑到 10.4 MB，等于每次面板
+  操作都解析一遍 10 MB JSON（实测 28 ms/次）。实测压缩后 10.42 MB → 0.07 MB，工具数不变
+- 启动时若注册表超过 2 MB，`warmCatalog` 顺手压一次（兼容旧版本写进去的胖缓存）
+- eager 档改为以活连接为数据源：`buildEagerTools` 用 `runtime.cachedTools()` 判空而不是
+  `visibleTools()`，否则注册表里的瘦缓存一旦非空就不会去连，`inputSchema` 缺失导致 eager
+  工具参数全部退化成 `{}`；同理 `warmCatalog` 不再把瘦缓存塞进 `runtime.slot`
+
 ## [0.7.0] - 2026-11-04
 
 ### 改名
