@@ -12,3 +12,5 @@ scripts/darwin-round*.mjs
 scripts/fix-*.mjs
 # 一次性补丁脚本（改动已落进 lib/，脚本只作本地记录）
 _patch-*.mjs
+# 分类 dry-run 的完整清单：每次跑 scripts/classify-skills.mjs 都会重新生成
+_classify-preview.txt
