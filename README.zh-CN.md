@@ -1,18 +1,20 @@
 <div align="center">
 
-  # DSH Skill Studio
+  # DSH Studio
 
-  **每轮自动沉淀 · 语义合并去重 · 走 DSH 自己的模型**
+  **技能工作台 + MCP 按需加载，一个插件管完**
 
   [简体中文](README.zh-CN.md) · [功能](#功能) · [合并怎么工作](#合并怎么工作) · [安装](#安装) · [改动记录](FORK-NOTES.md)
 
   ![License](https://img.shields.io/badge/License-MIT-blue.svg)
   ![DSH](https://img.shields.io/badge/DSH-Plugin-0f766e.svg)
   ![Fork](https://img.shields.io/badge/Fork-zhengjy01%2Fdsh--skill--studio-6b7280.svg)
-  ![Version](https://img.shields.io/badge/Version-0.5.0-2563eb.svg)
+  ![Version](https://img.shields.io/badge/Version-0.7.0-2563eb.svg)
 </div>
 
-> 本仓库是 [zhengjy01/dsh-studio](https://github.com/zhengjy01/dsh-studio) 的社区 fork，不是 DeepSeek AI 官方产品。上游提供 skill 可视化、编辑与手动提取；本 fork 在其之上补上「无人值守」需要的四件事：每轮判断、自动入库、语义合并、模型跟随 DSH。
+> Fork 自 zhengjy01/dsh-skill-studio，不是 DeepSeek AI 官方产品。上游提供 skill 可视化、编辑与手动提取；
+> 本 fork 补上「无人值守」需要的四件事（每轮判断、自动入库、语义合并、模型跟随 DSH），
+> 并加了 MCP 按需加载、三层筛选、回收站与按用途分类。
 
 ## 功能
 
@@ -25,6 +27,11 @@
 - **面板看「最近添加」**：技能工作台列出最近改动过的 skill（名字 + 描述 + 时间），一眼看到它这两天自己学了什么。
 - **写进去的内容是干净的**：合并时自动去掉模型重复抄写的章节，切掉 `MERGE:` 这类协议残渣，拦住比原文短一大截的覆盖。
 - **skill 体检**：写出一个 `SKILL.md` 后，下一轮自动把它推给 `darwin-skill` 按 9 维 rubric 体检。同族重复项按 `~/.dsh/darwin-auto/families.json` 折叠到一个宿主，表由插件自己的模型通道定期重聚（0.5.0 起并入了原 `dsh-darwin-auto` 插件）。
+- **三层筛选**：来源（全部 / 用户 / 内置）、启用状态（已启用 / 已停用）、用途分类（逆向 / 安全 / 代码 / 文档 / 运维 / 数据 / 流程 / 其他），三者是「与」的关系；状态与分类组再点一次已选中的胶囊即取消。
+- **按用途分组**：提取时模型必须从固定 8 类里选一个写进 `metadata.group`，合并旧 skill 时保留原分类。存量技能用 `node scripts/classify-skills.mjs --write` 按关键词批量归类（先看 `--limit` 出的明细，每个文件写前备 `.bak-group`）。
+- **回收站**：行右侧「删除」把目录移进 `~/.dsh/dsh-studio/trash/<时间戳>-<名>/`，面板「回收站」页可整批或单项恢复、永久删除。
+- **多来源扫描**：除 DSH 与公共 Agent 目录，还扫 Codex / Claude / Cursor / Gemini / Windsurf / Trae / Qoder / Lingma / OpenCode / Copilot / Roo / CodeBuddy / WorkBuddy / OpenClaw / CC-Switch，目录存在才加入。
+- **诊断**：frontmatter 的 `name` 不是 kebab-case 时标「宿主不认这个名」——这类技能面板看得见、宿主加载不了；跨来源同名时标出「被 X 盖住」。
 
 ## 合并怎么工作
 
@@ -120,6 +127,10 @@ New-Item -ItemType Junction `
 | `skillmgr_extract_status` | 看开关、间隔、队列、上次运行时间 |
 | `skillmgr_extract_config` | 改配置 |
 | `skillmgr_extract_list` / `_accept` / `_reject` | 处理候选队列（自动入库开启时通常为空） |
+| `skillmgr_trash` | 把一个技能移进回收站（不真删，可恢复） |
+| `skillmgr_trash_list` | 列回收站里的批次与条目 |
+| `skillmgr_restore` | 从回收站搬回原位置 |
+| `skillmgr_purge` | 永久删除回收站条目 |
 
 HTTP 路由挂在 `/api/dsh-studio/*`，面板用的就是它们。
 
@@ -132,6 +143,8 @@ HTTP 路由挂在 `/api/dsh-studio/*`，面板用的就是它们。
 - 空闲 N 分钟（默认 5，可改）没有任何工具调用就断开上游（stdio 子进程退出 / HTTP 会话关闭），工具缓存保留，下次调用透明重连
 - 每行点「工具 N/M」展开完整工具清单，勾选决定对外可见的那批，改完即时生效——不用重启 DSH，也不用重启上游
 - 启动时自动扫 profile 与各 bundle 的 `cordis.patch.yml`，把 `@deepseek-ai/dsh-mcp-client` 条目抄进面板（停用档，不连接）；点「接管」才禁用原生条目，重启后由本插件接管
+- 凭据默认掩码：`authorization` / `api_key` / `token` / `secret` / `password` / `cookie` 这类头与环境变量显示成 `••••••••` + 尾 4 位，点「显示」看明文、点「复制」写剪贴板。非凭据类环境变量（`GHIDRA_INSTALL_DIR`、`PATH` 等）不进面板
+- 工具栏可按服务器名 / 备注搜索，右下两排胶囊按档位与连接状态过滤
 
 工具：`mcp_list` / `mcp_register` / `mcp_load` / `mcp_call` / `mcp_takeover`。
 

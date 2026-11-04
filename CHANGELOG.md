@@ -4,7 +4,42 @@
 > 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 > 说明：0.2.0 及更早的条目依据 git 历史与 npm 发布时间回填。
 
-## [Unreleased]
+## [0.7.0] - 2026-11-04
+
+### 改名
+
+- 包名 `dsh-skill-studio` → `dsh-studio`，GitHub 仓库同改。API 路径 `/api/dsh-studio/*`，
+  数据目录 `~/.dsh/dsh-studio`，客户端模块 id 与日志前缀一并更新；工具名 `skillmgr_*` 保持不变
+
+### 新增
+
+- **技能工作台三层筛选**：来源（全部 / 用户 / 内置）、启用状态（已启用 / 已停用）、
+  用途分类（逆向分析 / 安全测试 / 代码工程 / 文档写作 / 环境运维 / 数据检索 / 流程协作 / 其他），
+  三者是「与」的关系；状态与分类组再点一次已选中的胶囊即取消
+- **回收站**：技能行右侧「删除」把目录移进 `~/.dsh/dsh-studio/trash/<时间戳>-<名>/`，
+  面板「回收站」页可整批或单项恢复、永久删除；跨盘 rename 失败自动退 copy + rm
+- **按用途自动分类**：会话提取时模型必须从固定 8 类里选一个写进 `metadata.group`；
+  合并旧 skill 时保留原分类。`scripts/classify-skills.mjs` 可按关键词把存量技能批量归类
+  （`--write` 写入，每个文件先备 `.bak-group`）
+- **多来源扫描**：除 DSH 与公共 Agent 目录外，补上 Codex / Claude / Cursor / Gemini /
+  Windsurf / Trae / Qoder / Lingma / OpenCode / Copilot / Roo / CodeBuddy / WorkBuddy /
+  OpenClaw / CC-Switch 等 15 个 Agent 的技能根，目录存在才扫描
+- **技能诊断**：frontmatter 的 `name` 不是 kebab-case 时标「宿主不认这个名」（这类技能
+  面板看得见、宿主加载不了）；跨来源同名时标出「被 X 盖住」与「盖住 N 个」
+- **分页**：每页 6 条，底部居中翻页条，中间的页码可点开输入后回车跳转
+- **MCP 面板对齐**：工具栏加服务器搜索、档位筛选（全部 / 启用 / 按需 / 停用）与
+  状态筛选（已连接 / 未连接），筛选无结果时给提示
+- **MCP 凭据掩码**：`authorization` / `api_key` / `token` / `secret` / `password` / `cookie`
+  这类头与环境变量默认显示为 `••••••••` + 尾 4 位，点「显示」看明文、点「复制」写剪贴板；
+  非凭据类环境变量（`GHIDRA_INSTALL_DIR`、`PATH` 等）不进面板，避免行卡被撑长
+
+### 改进
+
+- `listSkills` 用磁盘缓存 + 后台刷新 + 启动预热，不再每次请求都阻塞在 `ctx.skills.list()`
+  （此前打开面板要等 4–5 秒）
+- 26 处写死的中性灰 `rgba(128,128,128,a)` 换成 `color-mix(in srgb, currentColor N%, transparent)`，
+  边框与底色跟随深色 / 浅色主题
+- 胶囊、tab、组名标签都加 `userSelect: none`，点击时不再选中文字
 
 ### 修复
 

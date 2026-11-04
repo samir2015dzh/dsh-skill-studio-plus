@@ -1,18 +1,18 @@
 <div align="center">
 
-  # DSH Skill Studio
+  # DSH Studio
 
-  **Auto-distill every turn · Semantic merge · DSH-native models**
+  **Skill workbench + on-demand MCP, one plugin for both**
 
   [简体中文](README.zh-CN.md) · [Features](#features) · [How merging works](#how-merging-works) · [Installation](#installation) · [Fork notes](FORK-NOTES.md)
 
   ![License](https://img.shields.io/badge/License-MIT-blue.svg)
   ![DSH](https://img.shields.io/badge/DSH-Plugin-0f766e.svg)
   ![Fork](https://img.shields.io/badge/Fork-zhengjy01%2Fdsh--skill--studio-6b7280.svg)
-  ![Version](https://img.shields.io/badge/Version-0.5.0-2563eb.svg)
+  ![Version](https://img.shields.io/badge/Version-0.7.0-2563eb.svg)
 </div>
 
-> A community fork of [zhengjy01/dsh-studio](https://github.com/zhengjy01/dsh-studio). Not an official DeepSeek AI product. Upstream provides skill browsing, editing, and manual extraction; this fork adds the four things unattended use needs: per-turn judgement, auto-accept, semantic merging, and models that follow DSH.
+> Forked from zhengjy01/dsh-skill-studio. Not an official DeepSeek AI product. Upstream provides skill browsing, editing, and manual extraction; this fork adds the four things unattended use needs (per-turn judgement, auto-accept, semantic merging, models that follow DSH), plus on-demand MCP loading, three-layer filtering, a recycle bin, and purpose-based grouping.
 
 ## Features
 
@@ -25,6 +25,11 @@ Leave it running. It decides what this turn taught, which existing skill it belo
 - **"Recently added" in the panel**: the Skill Studio panel lists recently touched skills with name, description, and timestamp.
 - **Clean writes**: duplicated sections are truncated, protocol residue like `MERGE:` is stripped, and any "merge" that loses a large chunk of the original is rejected.
 - **Skill health checks**: writing a `SKILL.md` queues it for a `darwin-skill` review on the next turn. Duplicate families are folded onto one host through `~/.dsh/darwin-auto/families.json`; the table regenerates itself through the plugin's own LLM route (merged in 0.5.0, previously the separate `dsh-darwin-auto` plugin).
+- **Three-layer filtering**: source (all / user / built-in), enabled state (enabled / disabled), and purpose (reverse engineering / security / code / docs / ops / data / workflow / other). The three combine with AND; clicking an active pill in the state or purpose row clears it.
+- **Purpose grouping on generation**: extraction makes the model pick one of eight fixed categories and writes it to `metadata.group`; merging preserves the original. Existing skills can be bulk-classified with `node scripts/classify-skills.mjs --write` (each file backed up as `.bak-group` first).
+- **Recycle bin**: the row-level "delete" moves the directory into `~/.dsh/dsh-studio/trash/<stamp>-<name>/`. A dedicated panel page restores or purges, batch or single.
+- **Multi-source scanning**: besides DSH and the shared Agent directory, it also scans Codex / Claude / Cursor / Gemini / Windsurf / Trae / Qoder / Lingma / OpenCode / Copilot / Roo / CodeBuddy / WorkBuddy / OpenClaw / CC-Switch roots — only those that exist.
+- **Diagnostics**: a frontmatter `name` that is not kebab-case gets flagged "host will not load this name" (the panel sees it, DSH does not); cross-source duplicates are marked "shadowed by X".
 
 ## How merging works
 
@@ -122,8 +127,29 @@ The legacy `llmBaseUrl` / `llmApiKey` / `llmModel` fields still work as an HTTP 
 | `skillmgr_extract_status` | Switches, interval, queue depth, last run |
 | `skillmgr_extract_config` | Change configuration |
 | `skillmgr_extract_list` / `_accept` / `_reject` | Work the queue (usually empty with auto-accept on) |
+| `skillmgr_trash` | Move a skill into the recycle bin (not deleted, restorable) |
+| `skillmgr_trash_list` | List recycle-bin batches and entries |
+| `skillmgr_restore` | Move an entry back to its original path |
+| `skillmgr_purge` | Permanently delete a recycle-bin entry |
 
 HTTP routes live under `/api/dsh-studio/*` — that is what the panel talks to.
+
+## On-demand MCP
+
+The **MCP servers** settings page collects the MCP entries DSH already has and gives them on-demand loading, idle reclaim, and a visual tool whitelist.
+
+- Three tiers: **enabled** (tools register directly as `mcp__<server>__<tool>`) / **on-demand** (catalog only; load with `mcp_load`) / **disabled**
+- The catalog carries server names plus each tool's name and truncated description; full schemas come from `mcp_load`, calls go through `mcp_call`
+- After N idle minutes (default 5) with no tool call, the upstream is disconnected (stdio child exits / HTTP session closes). Tool cache and registry stay, and the next call reconnects transparently
+- Clicking "tools N/M" on a row expands the full tool list; tick the ones that stay visible, effective immediately — no DSH restart, no upstream restart
+- On startup it scans the profile and every bundle `cordis.patch.yml` for `@deepseek-ai/dsh-mcp-client` entries and mirrors them into the panel (disabled tier, not connected). "Take over" disables the native row; after a restart this plugin owns it
+- Credentials are masked by default: `authorization` / `api_key` / `token` / `secret` / `password` / `cookie` headers and env vars render as `••••••••` plus the last four characters, with reveal and copy buttons. Non-credential env vars (`GHIDRA_INSTALL_DIR`, `PATH`, …) stay out of the panel
+- The toolbar filters by server name or note; two pill rows below filter by tier and connection state
+
+Tools: `mcp_list` / `mcp_register` / `mcp_load` / `mcp_call` / `mcp_takeover`.
+
+Config lives at `~/.dsh/dsh-studio/mcp.json`; routes are under `/api/dsh-studio/mcp*`.
+Field reference and known limits: [MCP.md](./MCP.md).
 
 ## Debugging
 
