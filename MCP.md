@@ -1,6 +1,6 @@
 # MCP 按需加载（studio 内置）
 
-`dsh-skill-studio` 0.6.0 起自带 MCP 管理，参照 MCP-cell（luohui1/MCP-cell）的进程思路和
+`dsh-studio` 0.6.0 起自带 MCP 管理，参照 MCP-cell（luohui1/MCP-cell）的进程思路和
 dsh-skill-mcp-manager 的目录化思路：**会话开头只给名字 + 截断描述，完整 schema 等真正要用再取**。
 
 ## 三档
@@ -34,7 +34,7 @@ HTTP 会话关闭。**工具缓存与注册表保留**，下次调用透明重�
 
 ## 存储
 
-`~/.dsh/dsh-skill-studio/mcp.json`
+`~/.dsh/dsh-studio/mcp.json`
 
 ```json
 {
@@ -56,11 +56,11 @@ skill 列表刷新不会带着 MCP 面板重建）。布局照 MCP-cell：统计
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| GET | `/api/dsh-skill-studio/mcp` | 列表 |
-| POST | `/api/dsh-skill-studio/mcp` | 新增/改（传 name + 要改的字段） |
-| DELETE | `/api/dsh-skill-studio/mcp?name=` | 删除 |
-| POST | `/api/dsh-skill-studio/mcp/reload` | 断开重连 |
-| POST | `/api/dsh-skill-studio/mcp/settings` | 改空闲阈值 / 描述截断长度 |
+| GET | `/api/dsh-studio/mcp` | 列表 |
+| POST | `/api/dsh-studio/mcp` | 新增/改（传 name + 要改的字段） |
+| DELETE | `/api/dsh-studio/mcp?name=` | 删除 |
+| POST | `/api/dsh-studio/mcp/reload` | 断开重连 |
+| POST | `/api/dsh-studio/mcp/settings` | 改空闲阈值 / 描述截断长度 |
 
 ## 已知限制
 
@@ -78,7 +78,7 @@ skill 列表刷新不会带着 MCP 面板重建）。布局照 MCP-cell：统计
 
 ```powershell
 # 起一个假 MCP（仅测试用）
-node D:\dsh-plugins\dsh-skill-studio\test-mcp.mjs
+node D:\dsh-plugins\dsh-studio\test-mcp.mjs
 # 在 DSH 里：mcp_register → mcp_load → mcp_call → 等 5 分钟 → mcp_call（应自动重连）
 # 假 MCP 每次被拉起都会往 test-mcp.log 追加一行 start，可用来数冷启动次数
 ```

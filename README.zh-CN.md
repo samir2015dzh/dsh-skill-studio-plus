@@ -12,7 +12,7 @@
   ![Version](https://img.shields.io/badge/Version-0.5.0-2563eb.svg)
 </div>
 
-> 本仓库是 [zhengjy01/dsh-skill-studio](https://github.com/zhengjy01/dsh-skill-studio) 的社区 fork，不是 DeepSeek AI 官方产品。上游提供 skill 可视化、编辑与手动提取；本 fork 在其之上补上「无人值守」需要的四件事：每轮判断、自动入库、语义合并、模型跟随 DSH。
+> 本仓库是 [zhengjy01/dsh-studio](https://github.com/zhengjy01/dsh-studio) 的社区 fork，不是 DeepSeek AI 官方产品。上游提供 skill 可视化、编辑与手动提取；本 fork 在其之上补上「无人值守」需要的四件事：每轮判断、自动入库、语义合并、模型跟随 DSH。
 
 ## 功能
 
@@ -55,15 +55,15 @@
 1. clone 到本地任意位置：
 
 ```bash
-git clone <this-repo> D:/dsh-plugins/dsh-skill-studio
+git clone <this-repo> D:/dsh-plugins/dsh-studio
 ```
 
 2. 在 profile 的 `package.json` 里登记：
 
 ```json
 {
-  "dependencies": { "dsh-skill-studio": "link:D:/dsh-plugins/dsh-skill-studio" },
-  "dsh": { "profile": { "bundles": ["dsh-skill-studio"] } }
+  "dependencies": { "dsh-studio": "link:D:/dsh-plugins/dsh-studio" },
+  "dsh": { "profile": { "bundles": ["dsh-studio"] } }
 }
 ```
 
@@ -71,15 +71,15 @@ git clone <this-repo> D:/dsh-plugins/dsh-skill-studio
 
 ```powershell
 New-Item -ItemType Junction `
-  -Path "$env:DSH_PROFILE_DIR\node_modules\dsh-skill-studio" `
-  -Target "D:\dsh-plugins\dsh-skill-studio"
+  -Path "$env:DSH_PROFILE_DIR\node_modules\dsh-studio" `
+  -Target "D:\dsh-plugins\dsh-studio"
 ```
 
 4. 重启 DSH，打开 **设置 → Skill 工作台**。
 
 ## 配置
 
-配置文件：`~/.dsh/dsh-skill-studio/extractor.json`（0600 权限）。
+配置文件：`~/.dsh/dsh-studio/extractor.json`（0600 权限）。
 
 ```json
 {
@@ -121,7 +121,7 @@ New-Item -ItemType Junction `
 | `skillmgr_extract_config` | 改配置 |
 | `skillmgr_extract_list` / `_accept` / `_reject` | 处理候选队列（自动入库开启时通常为空） |
 
-HTTP 路由挂在 `/api/dsh-skill-studio/*`，面板用的就是它们。
+HTTP 路由挂在 `/api/dsh-studio/*`，面板用的就是它们。
 
 ## MCP 按需加载
 
@@ -135,7 +135,7 @@ HTTP 路由挂在 `/api/dsh-skill-studio/*`，面板用的就是它们。
 
 工具：`mcp_list` / `mcp_register` / `mcp_load` / `mcp_call` / `mcp_takeover`。
 
-配置位置 `~/.dsh/dsh-skill-studio/mcp.json`，HTTP 路由在 `/api/dsh-skill-studio/mcp*`。
+配置位置 `~/.dsh/dsh-studio/mcp.json`，HTTP 路由在 `/api/dsh-studio/mcp*`。
 详细配置、字段说明与已知限制见 [MCP.md](./MCP.md)。
 
 ## 调试
@@ -143,7 +143,7 @@ HTTP 路由挂在 `/api/dsh-skill-studio/*`，面板用的就是它们。
 每次调模型的原始输出会留在：
 
 ```
-~/.dsh/dsh-skill-studio/last-llm-raw.txt
+~/.dsh/dsh-studio/last-llm-raw.txt
 ```
 
 解析报错时先看这个文件 —— 是 JSON 被截断、还是夹了 markdown 围栏、还是模型答非所问，一眼能分辨。

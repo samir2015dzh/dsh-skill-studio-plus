@@ -12,7 +12,7 @@
   ![Version](https://img.shields.io/badge/Version-0.5.0-2563eb.svg)
 </div>
 
-> A community fork of [zhengjy01/dsh-skill-studio](https://github.com/zhengjy01/dsh-skill-studio). Not an official DeepSeek AI product. Upstream provides skill browsing, editing, and manual extraction; this fork adds the four things unattended use needs: per-turn judgement, auto-accept, semantic merging, and models that follow DSH.
+> A community fork of [zhengjy01/dsh-studio](https://github.com/zhengjy01/dsh-studio). Not an official DeepSeek AI product. Upstream provides skill browsing, editing, and manual extraction; this fork adds the four things unattended use needs: per-turn judgement, auto-accept, semantic merging, and models that follow DSH.
 
 ## Features
 
@@ -57,15 +57,15 @@ The plugin is installed into the DSH profile with a `link:`, so code edits need 
 1. Clone anywhere:
 
 ```bash
-git clone <this-repo> D:/dsh-plugins/dsh-skill-studio
+git clone <this-repo> D:/dsh-plugins/dsh-studio
 ```
 
 2. Register it in the profile `package.json`:
 
 ```json
 {
-  "dependencies": { "dsh-skill-studio": "link:D:/dsh-plugins/dsh-skill-studio" },
-  "dsh": { "profile": { "bundles": ["dsh-skill-studio"] } }
+  "dependencies": { "dsh-studio": "link:D:/dsh-plugins/dsh-studio" },
+  "dsh": { "profile": { "bundles": ["dsh-studio"] } }
 }
 ```
 
@@ -73,15 +73,15 @@ git clone <this-repo> D:/dsh-plugins/dsh-skill-studio
 
 ```powershell
 New-Item -ItemType Junction `
-  -Path "$env:DSH_PROFILE_DIR\node_modules\dsh-skill-studio" `
-  -Target "D:\dsh-plugins\dsh-skill-studio"
+  -Path "$env:DSH_PROFILE_DIR\node_modules\dsh-studio" `
+  -Target "D:\dsh-plugins\dsh-studio"
 ```
 
 4. Restart DSH and open **Settings → Skill Studio**.
 
 ## Configuration
 
-Config file: `~/.dsh/dsh-skill-studio/extractor.json` (mode 0600).
+Config file: `~/.dsh/dsh-studio/extractor.json` (mode 0600).
 
 ```json
 {
@@ -123,14 +123,14 @@ The legacy `llmBaseUrl` / `llmApiKey` / `llmModel` fields still work as an HTTP 
 | `skillmgr_extract_config` | Change configuration |
 | `skillmgr_extract_list` / `_accept` / `_reject` | Work the queue (usually empty with auto-accept on) |
 
-HTTP routes live under `/api/dsh-skill-studio/*` — that is what the panel talks to.
+HTTP routes live under `/api/dsh-studio/*` — that is what the panel talks to.
 
 ## Debugging
 
 Every model response is dumped to:
 
 ```
-~/.dsh/dsh-skill-studio/last-llm-raw.txt
+~/.dsh/dsh-studio/last-llm-raw.txt
 ```
 
 When parsing fails, read that file first: truncated JSON, markdown fences, or an off-topic answer are immediately distinguishable.

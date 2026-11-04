@@ -1,6 +1,6 @@
 # Changelog
 
-> `dsh-skill-studio` 的全部版本变更。本文件由 `scripts/release.mjs` 在发布时自动补写。
+> `dsh-studio` 的全部版本变更。本文件由 `scripts/release.mjs` 在发布时自动补写。
 > 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 > 说明：0.2.0 及更早的条目依据 git 历史与 npm 发布时间回填。
 
@@ -46,7 +46,7 @@
 
 ### 修复
 
-- `savePendingRemember()` 写 `pending-remember.json` 前补 `mkdir(dirname(...), { recursive: true })`：目标目录 `~/.dsh/dsh-skill-studio` 不存在时，首次「记住」会静默失败
+- `savePendingRemember()` 写 `pending-remember.json` 前补 `mkdir(dirname(...), { recursive: true })`：目标目录 `~/.dsh/dsh-studio` 不存在时，首次「记住」会静默失败
 - `extractIfDue()` 调用点移除恒为 `false` 的 `forceReview` 实参（`remember` 分支已提前 return，实参永远取不到 `true`）
 - 0.5.1 段落修复文字损坏：`Remember` 缺首字母、反引号丢失；`forceReview` 的 `f` 变成控制字符 U+000C（`\f` 转义），`runExtraction()` 的 `r` 被当成回车吃掉 —— 说明写 CHANGELOG 的环节做过一次 C 风格转义
 - `!!js "'…' + process.env.PATH"` 这类动态 env 现在拆出字面量前缀存 `envPrefix`，
@@ -144,7 +144,7 @@
 
 ### 其它 (Changed)
 
-- 接入发布前门禁：仓库新增 `scripts/portability.mjs` + `PORTABILITY-SOP.md`，`package.json` 新增 `verify` / `verify:full` / `verify:quick`（健康路由 `/api/dsh-skill-studio/list`）；`scripts/release.mjs` 升级到 dsh-release-kit 版（`files` 覆盖检查改为布局自适应、npm 凭据认 `DSH_HOME`）。
+- 接入发布前门禁：仓库新增 `scripts/portability.mjs` + `PORTABILITY-SOP.md`，`package.json` 新增 `verify` / `verify:full` / `verify:quick`（健康路由 `/api/dsh-studio/list`）；`scripts/release.mjs` 升级到 dsh-release-kit 版（`files` 覆盖检查改为布局自适应、npm 凭据认 `DSH_HOME`）。
 
 ### 兼容性 (Compatibility)
 
