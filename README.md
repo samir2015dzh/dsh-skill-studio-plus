@@ -131,6 +131,11 @@ The legacy `llmBaseUrl` / `llmApiKey` / `llmModel` fields still work as an HTTP 
 | `skillmgr_trash_list` | List recycle-bin batches and entries |
 | `skillmgr_restore` | Move an entry back to its original path |
 | `skillmgr_purge` | Permanently delete a recycle-bin entry |
+| `skillmgr_snapshot` | Back up the `~/.dsh` config into a snapshot |
+| `skillmgr_snapshot_list` | List snapshots (time, label, file count, size) |
+| `skillmgr_snapshot_restore` | Restore a snapshot; `dryRun` previews, `pathMap` re-roots paths |
+| `skillmgr_snapshot_transfer` | Export to `.tar.gz` or import an external archive |
+| `skillmgr_sync` | Cross-machine sync: read config / push latest / pull from remote |
 
 HTTP routes live under `/api/dsh-studio/*` — that is what the panel talks to.
 
@@ -150,6 +155,43 @@ Tools: `mcp_list` / `mcp_register` / `mcp_load` / `mcp_call` / `mcp_takeover`.
 
 Config lives at `~/.dsh/dsh-studio/mcp.json`; routes are under `/api/dsh-studio/mcp*`.
 Field reference and known limits: [MCP.md](./MCP.md).
+
+## Config snapshots
+
+Settings → 「配置快照」: pack the parts of `~/.dsh` worth backing up into a tar.gz, so you can return to a point in time.
+
+Included (allowlist): `cordis.patch.yml`, `AGENTS.md`, `skills/`, `dsh-studio/` (MCP config, recycle bin, schedule), and each profile's `package.json` + `cordis.patch.yml`. Measured: 248 files, 3.6 MB → 1.2 MB.
+
+Excluded: `.credentials.yaml` (secrets), `sessions/` (session logs), `node_modules/`, `sync.json` (sync credentials), `sync-work/` (git working copy), and the snapshots themselves.
+
+Three actions:
+
+- **Back up now** — create a snapshot with an optional label
+- **Preview / Restore** — preview lists every file as create / overwrite / same without touching disk; a real restore first writes a `pre-restore` snapshot, so the restore itself is undoable
+- **Export / Import** — `.tar.gz` round-trip; every file's SHA-256 still matches after importing on another machine
+
+Moving machines: pass `pathMap: [{from: "C:\\Users\\alex", to: "C:\\Users\\samir"}]` to the restore, and absolute path prefixes inside text files get rewritten before writing. Both the JSON-escaped form (`C:\\Users\\alex`) and the plain form are handled; binary files are detected by `isProbablyText` and left alone.
+
+Scheduled backups: turn the switch on and set an interval (hours) plus how many to keep. The plugin checks every 30 minutes, creates a `scheduled` snapshot when due, and prunes the old ones. **Pruning only touches the `scheduled` label** — manually created snapshots are never removed.
+
+Schedule lives at `~/.dsh/dsh-studio/snapshot.json`; snapshots are stored under `~/.dsh/dsh-studio/snapshots/<timestamp>-<label>/`, each with a `manifest.json` listing files and SHA-256 hashes.
+
+## Multi-machine sync
+
+The sync area under the snapshot panel pushes the latest snapshot to a remote, or pulls it back on another machine.
+
+Four channels:
+
+| Channel | Fields | Notes |
+| --- | --- | --- |
+| Git | remote, work dir (optional) | init → remote add → fetch → checkout; empty repos work on first push |
+| Gist | GitHub token, Gist id | Gist is created on first push; tar.gz goes as base64, falls back to `raw_url` past 1 MB |
+| WebDAV | URL, username, password | PUT / GET, optional Basic auth |
+| S3 | Endpoint, Bucket, Region, AccessKey, SecretKey | Hand-written SigV4, path-style, PUT / GET |
+
+Push uploads the latest `config.tar.gz` and `manifest.json` plus a `LATEST` file naming the snapshot id. Pull reads `LATEST`, fetches the archive and lands it as a new local snapshot — it does not write config directly, so you preview and restore afterwards.
+
+Config lives at `~/.dsh/dsh-studio/sync.json`, and **credentials never enter a snapshot**. The Git working copy sits in `~/.dsh/dsh-studio/sync-work/`, also excluded.
 
 ## Debugging
 

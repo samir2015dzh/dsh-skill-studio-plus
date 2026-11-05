@@ -131,6 +131,11 @@ New-Item -ItemType Junction `
 | `skillmgr_trash_list` | 列回收站里的批次与条目 |
 | `skillmgr_restore` | 从回收站搬回原位置 |
 | `skillmgr_purge` | 永久删除回收站条目 |
+| `skillmgr_snapshot` | 把 `~/.dsh` 的配置打一份快照 |
+| `skillmgr_snapshot_list` | 列快照（时间、标签、文件数、体积） |
+| `skillmgr_snapshot_restore` | 恢复快照；`dryRun` 只算差异，可带 `pathMap` 换机器路径 |
+| `skillmgr_snapshot_transfer` | 导出成 `.tar.gz` 或从外部包导入 |
+| `skillmgr_sync` | 多机同步：看配置 / 推送最新快照 / 从远端拉取 |
 
 HTTP 路由挂在 `/api/dsh-studio/*`，面板用的就是它们。
 
@@ -150,6 +155,43 @@ HTTP 路由挂在 `/api/dsh-studio/*`，面板用的就是它们。
 
 配置位置 `~/.dsh/dsh-studio/mcp.json`，HTTP 路由在 `/api/dsh-studio/mcp*`。
 详细配置、字段说明与已知限制见 [MCP.md](./MCP.md)。
+
+## 配置快照
+
+设置页「配置快照」：把 `~/.dsh` 里该备份的配置打成一份 tar.gz，随时回到某个时间点。
+
+收什么（白名单）：`cordis.patch.yml`、`AGENTS.md`、`skills/`、`dsh-studio/`（MCP 配置、回收站、定时配置）、各 profile 的 `package.json` 与 `cordis.patch.yml`。实测 248 个文件 3.6 MB → 1.2 MB。
+
+不收什么：`.credentials.yaml`（密钥）、`sessions/`（会话日志）、`node_modules/`、`sync.json`（同步凭据）、`sync-work/`（git 工作副本）、快照自己。
+
+三个动作：
+
+- **立即备份** —— 建一份快照，可填标签
+- **预览 / 恢复** —— 预览逐文件列出「新建 / 覆盖 / 相同」，不写盘；真恢复前自动打一份 `pre-restore`，恢复可回退
+- **导出 / 导入** —— `.tar.gz` 往返，导出的包在另一台机器导入后每个文件的 SHA-256 都对得上
+
+跨机迁移：恢复时给 `pathMap: [{from: "C:\\Users\\alex", to: "C:\\Users\\samir"}]`，写盘前替换文本里的绝对路径前缀。JSON 里的转义写法（`C:\\Users\\alex`）与纯文本原样写法都处理，二进制文件原样跳过。
+
+定时备份：勾上开关并填间隔（小时）与保留份数，插件每 30 分钟检查一次，到点建 `scheduled` 快照并清理旧的。**清理只动 `scheduled` 标签**，手动建的那几份不受影响。
+
+配置位置 `~/.dsh/dsh-studio/snapshot.json`（定时设置），快照存在 `~/.dsh/dsh-studio/snapshots/<时间戳>-<标签>/`，每份带 `manifest.json` 记录文件清单与 SHA-256。
+
+## 多机同步
+
+设置页「配置快照」下方的同步区：把最新快照推到远端，或在另一台机器上取回来。
+
+四条通道：
+
+| 通道 | 要填 | 说明 |
+| --- | --- | --- |
+| Git | 仓库地址、工作副本（可空） | init → remote add → fetch → checkout，空仓库也能首次推送 |
+| Gist | GitHub token、Gist id | 首次推送自动建 Gist，tar.gz 走 base64，超 1 MB 回退 `raw_url` |
+| WebDAV | 地址、用户名、密码 | PUT / GET，可选 Basic auth |
+| S3 | Endpoint、Bucket、Region、AccessKey、SecretKey | 手写 SigV4，path-style，PUT / GET |
+
+推送把最新那份快照的 `config.tar.gz` 与 `manifest.json` 传到远端，另写一个 `LATEST` 记快照 id；拉取读 `LATEST` 把内容取回落成一份本地快照（不直接写配置，先预览再恢复）。
+
+配置位置 `~/.dsh/dsh-studio/sync.json`，**凭据不进快照**。Git 工作副本在 `~/.dsh/dsh-studio/sync-work/`，同样不进快照。
 
 ## 调试
 

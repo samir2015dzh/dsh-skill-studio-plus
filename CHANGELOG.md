@@ -4,7 +4,35 @@
 > 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 > 说明：0.2.0 及更早的条目依据 git 历史与 npm 发布时间回填。
 
-## [Unreleased]
+## [0.8.0] - 2026-11-05
+
+### 新增
+
+- **配置快照**：把 `~/.dsh` 的配置按白名单打成 tar.gz 存到
+  `~/.dsh/dsh-studio/snapshots/<时间戳>-<标签>/`，附 `manifest.json`（每个文件的相对路径、
+  SHA-256、字节数）。白名单收 `cordis.patch.yml`、`AGENTS.md`、`skills/`、`dsh-studio/`、
+  各 profile 的 `package.json` 与 `cordis.patch.yml`，实测 248 个文件 3.6 MB → 1.2 MB。
+  密钥（`.credentials.yaml`、`sync.json`）、会话日志（`sessions/`）、`node_modules/`、
+  `sync-work/` 一律跳过
+- **恢复**：`dryRun` 逐文件比 SHA 报 create / overwrite / same，真恢复前自动打一份
+  `pre-restore` 快照，恢复后可回退
+- **导出 / 导入**：tar.gz 往返，导出的包在另一台机器上导入后 SHA 全部一致
+- **跨机路径重映射**：`restoreSnapshot` 收 `pathMap: [{from, to}]`，写盘前替换文本里的绝对
+  路径前缀；JSON 里的转义写法（`C:\\Users\\a`）与纯文本原样写法都处理，二进制文件按
+  `isProbablyText` 判定后跳过
+- **定时备份**：`~/.dsh/dsh-studio/snapshot.json` 存 `{ enabled, intervalHours, keep }`，
+  插件每 30 分钟问一次「该不该跑」，到点建 `scheduled` 快照并按 `keep` 清理旧的那几份；
+  清理只动 `scheduled` 标签，不碰手动备份
+- **四条同步通道**：Git（init + remote add + fetch + checkout，支持空仓库）、
+  Gist（GitHub Gist API，tar.gz 走 base64，超大回退 `raw_url`）、
+  WebDAV（PUT/GET + 可选 Basic auth）、S3（手写 SigV4，path-style，PUT/GET）。
+  配置在 `~/.dsh/dsh-studio/sync.json`，凭据不进快照
+- **设置页「配置快照」**（order 302）：统计条、立即备份、保留最近 N 份、导出/导入、
+  逐行预览与恢复、定时备份开关、同步通道胶囊与推送/拉取
+- 4 条新路由：`/snapshot`、`/snapshot/restore`、`/snapshot/prune`、`/snapshot/transfer`、
+  `/snapshot/schedule`、`/sync`、`/sync/push`、`/sync/pull`
+- 4 个新工具：`skillmgr_snapshot`、`skillmgr_snapshot_list`、`skillmgr_snapshot_restore`、
+  `skillmgr_snapshot_transfer`、`skillmgr_sync`
 
 ### 修复
 
@@ -19,6 +47,15 @@
 - `skillmgr_list` 补回 `dir` 字段：`fsToSummary()` 从 0.7.0 起带上技能目录，但输出 schema 的
   `items` 是 `additionalProperties: false` 且没声明 `dir`，宿主校验直接判整个调用失败
   （`value.skills[0].dir is not a declared property`），插件最常用的列表工具全线不可用
+- 定时备份的保留策略原本调 `pruneSnapshots`，它按时间排「全部」快照，把手动建的那几份也算进
+  「保留 N 份」里 —— 实测手动快照被删。改为 `pruneScheduled`，只对 `label === "scheduled"`
+  排序清理
+- 快照 id 原本精确到秒，同一秒内连建两份会撞 id，后一份直接覆盖前一份。`stamp()` 补毫秒
+- 白名单 `dsh-studio/` 原本只跳过 `snapshots`，漏了 `sync.json`（gist token / s3 secretKey
+  明文，一进快照等于导出即泄露）与 `sync-work/`（git 工作副本含 `.git`）
+- Git 通道原本用 `git clone --depth 1`，对空仓库（bare 但无 commit）clone 出来没有 HEAD，
+  之后的 `git pull --ff-only` 报 "no tracking information"。改为 init → remote add → fetch →
+  有分支才 checkout，空仓库停在未跟踪状态等首次 `push -u`
 
 ## [0.7.0] - 2026-11-04
 
