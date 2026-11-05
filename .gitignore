@@ -17,3 +17,7 @@ _classify-preview.txt
 
 # 语法校验失败时的中间产物
 *.broken-*
+
+# 临时修补脚本的其它前缀
+_add-*.mjs
+_fix*.mjs
