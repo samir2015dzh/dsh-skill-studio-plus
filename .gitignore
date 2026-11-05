@@ -14,3 +14,6 @@ scripts/fix-*.mjs
 _patch-*.mjs
 # 分类 dry-run 的完整清单：每次跑 scripts/classify-skills.mjs 都会重新生成
 _classify-preview.txt
+
+# 语法校验失败时的中间产物
+*.broken-*
