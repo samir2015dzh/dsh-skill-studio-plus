@@ -104,6 +104,26 @@ const pendingBlock = (text) => {
 	ok((await sectionText(h)) === "", "加载 darwin-skill 后进入静默期");
 }
 
+// ---- 3b. 读类工具读 SKILL.md 不记 pending（WO-EVO-3）
+{
+	const { h } = scene();
+	await h.get("tools/post-execute")(
+		{ name: "read", arguments: { file_path: path.join(skills, HOST, "SKILL.md") } },
+		{},
+		async () => {},
+	);
+	ok((await sectionText(h)) === "", "read 工具读 SKILL.md 不产生 pending");
+	await h.get("tools/post-execute")(
+		{ name: "grep", arguments: { path: path.join(skills, MEMBERS[0], "SKILL.md") } },
+		{},
+		async () => {},
+	);
+	ok((await sectionText(h)) === "", "grep 工具读 SKILL.md 不产生 pending");
+	// 同一个文件换成写类工具，仍要能记上
+	await writeSkill(h, MEMBERS[0]);
+	ok(pendingBlock(await sectionText(h)).includes(MEMBERS[0]), "写类工具仍能记 pending");
+}
+
 // ---- 4. roots 外的 SKILL.md 不触发
 {
 	const { h } = scene();
