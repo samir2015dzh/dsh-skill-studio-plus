@@ -1,14 +1,17 @@
 # MCP 按需加载（studio 内置）
 
 `dsh-studio` 0.6.0 起自带 MCP 管理，参照 MCP-cell（luohui1/MCP-cell）的进程思路和
-dsh-skill-mcp-manager 的目录化思路：**会话开头只给名字 + 截断描述，完整 schema 等真正要用再取**。
+dsh-skill-mcp-manager 的目录化思路：**会话开头只列工具名，连描述都不给，完整 schema 等真正要用再取**。
+
+0.8.0 起目录段把工具描述也砍掉了：craft-anything 一个大服务器列全描述要 75,918 字符
+（≈19K token），只给名字后是 4,878 字符（≈1.35K）。名字足够判断该不该 load。
 
 ## 三档
 
 | 档位 | 工具注册 | 进目录 | 用途 |
 |---|---|---|---|
-| **启用**（`eager`） | 注册成 `mcp__<server>__<tool>` | 是 | 高频、schema 小，或需要模型无条件看见的 |
-| **按需启用**（`on-demand`，默认） | 不注册 | 是（名字 + 描述） | 工具多、schema 大的，按需 `mcp_load` |
+| **启用**（`eager`） | 注册成 `mcp__<server>__<tool>` | 是（名字） | 高频、schema 小，或需要模型无条件看见的 |
+| **按需启用**（`on-demand`，默认） | 不注册 | 是（只给名字） | 工具多、schema 大的，按需 `mcp_call` / `mcp_load` |
 | **停用**（`disabled`） | 不注册 | 否 | 临时关掉 |
 
 省的是**每轮系统提示里的工具 schema**。实测：一个 95 工具的 MCP 走 eager 大约 33K token/轮，
@@ -19,8 +22,15 @@ dsh-skill-mcp-manager 的目录化思路：**会话开头只给名字 + 截断�
 - `mcp_list` — 档位、连接状态、工具数与截断描述。
 - `mcp_register {name, tier, transport, command|url, args, env, headers, notes}` — 新增或修改。
   **先试连 + 拉一次工具列表**，通过才写注册表。
-- `mcp_load {name, peek?}` — 建立连接并返回完整 `inputSchema`；`peek` 只读缓存不连接。
-- `mcp_call {name, tool, args}` — 调用；on-demand 会按需连接，被回收过的会先重连。
+- `mcp_load {name, filter?, limit?, peek?, refresh?}` — 返回完整 `inputSchema`。
+  `peek` 只读缓存不连接；`filter` 按名字/描述子串过滤（工具多的服务器先过滤再取）。
+  **默认用内存缓存**——换 `filter` / `limit` 不会重连；只有 `refresh: true` 才重连重拉。
+  缓存为空时自动连。
+- `mcp_call {name, tool, args}` 或 `mcp_call {name, calls: [{tool, args}, …]}` — 调用。
+  - 单个用 `tool` + `args`；一批用 `calls`，按顺序执行，**某个失败不中断后面的**
+  - **直接执行即可，不需要先 `mcp_load`**——它自己会连接
+  - on-demand 会按需连接，被回收过的会先重连
+  - 批量模式下每个结果前面带 `### <工具名>`；单个模式直接返回原结果
 - `mcp_takeover {name}` — 接管 profile 里已有的原生 MCP：禁用 `cordis.patch.yml` 里那条行，
   改由本插件按需加载。需要重启 DSH 才生效。
 
@@ -52,7 +62,21 @@ HTTP 会话关闭。**工具缓存与注册表保留**，下次调用透明重�
 
 设置页入口：**设置 → MCP 服务器**（独立一页，不放在 Skill 工作台里——两者渲染树分开，
 skill 列表刷新不会带着 MCP 面板重建）。布局照 MCP-cell：统计条 → 设置行 → 一行一个服务器，
-状态点区分已连接 / 空闲 / 错误 / 已停用，档位用可点的胶囊切换。
+档位用可点的胶囊切换。工具列表**跟随各自卡片**展开，不再堆在整个列表末尾。
+
+**状态四态**（0.8.0 修正，之前「空闲」和「未连接」混用）：
+
+| 状态 | 含义 |
+|---|---|
+| 已连接 | `status === "connected"`，或 studio 自建条目（没有原生行、不需要接管）——显示为绿 |
+| 空闲（未连接） | `status === "idle"`，还没有调用过 |
+| 连接错误 | 单独一档，`error` 有内容；没有错误时不占位 |
+| 已停用（不连接） | `tier === "disabled"`，不冒充空闲 |
+
+筛选按 `status` 精确匹配：点「未连接」不会把已停用和出错的服务器一起翻出来。
+
+**删除要二次确认**：点一下变「确认删除」（红色），4 秒后自动恢复。因为删除会一并丢掉
+备注、工具白名单（`toolFilter`）和空闲阈值（`idleTimeout`）。
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
@@ -79,9 +103,20 @@ skill 列表刷新不会带着 MCP 面板重建）。布局照 MCP-cell：统计
 ```powershell
 # 起一个假 MCP（仅测试用）
 node D:\dsh-plugins\dsh-studio\test-mcp.mjs
-# 在 DSH 里：mcp_register → mcp_load → mcp_call → 等 5 分钟 → mcp_call（应自动重连）
+# 在 DSH 里：
+#   mcp_register → mcp_call（直接调，不用先 load）
+#   → 换 filter 再 mcp_load（不该重连，看 test-mcp.log 没有新 start）
+#   → mcp_load {refresh: true}（该重连，log 多一行 start）
+#   → mcp_call {calls: [{tool:"a"}, {tool:"b"}]}（批量，两个结果都回来）
+#   → 等 5 分钟 → mcp_call（应自动重连）
 # 假 MCP 每次被拉起都会往 test-mcp.log 追加一行 start，可用来数冷启动次数
 ```
+
+## 回归检查（改 mcp 相关代码后跑一遍）
+
+1. `node --check lib/mcp.js`
+2. `node scripts/check-client.mjs`（13 个组件、Api 方法对账）
+3. 目录段体积：`mcp_list` 之后看系统提示里那段，工具多的服务器应该只有名字、没有描述
 
 ## 回滚
 

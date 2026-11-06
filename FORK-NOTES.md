@@ -89,6 +89,9 @@ profile `package.json`：
 `node_modules/dsh-skill-studio` 是指向本目录的 Junction；npm 原版备份在同目录
 `dsh-skill-studio.bak-npm`。
 
+> 上面这段是 0.7.0 改名当时的状态记录。改名已完成，包名现在是 `dsh-studio`，
+> 这两个路径（`dsh-skill-studio` 链接与 `.bak-npm` 备份）都已不存在，保留作历史。
+
 ## 回滚
 
 ```powershell
@@ -307,7 +310,9 @@ oom-real-heap 3336→1689、handoff、agent-handoff-review-report 二轮）。
 
 首个使用点：`~/.agents/skills/meeting-audio-to-minutes`（录音转文字 → 会议纪要）。
 
-回滚：`lib/extractor.js.bak-nomerge-20261026`。改完要重启 DSH 才生效（模块在启动时加载）。
+回滚：用 git 回退那一版 `lib/extractor.js`（`git log --oneline -- lib/extractor.js` 找到改动前的提交，
+`git checkout <hash> -- lib/extractor.js`）。当时留的 `.bak-nomerge-20261026` 已在 2026-11-06 清理，
+git 历史里有等价副本。改完要重启 DSH 才生效（模块在启动时加载）。
 
 
 ## 17. 「记住」做成对话内确认，并按类型分流（2026-11-01）
