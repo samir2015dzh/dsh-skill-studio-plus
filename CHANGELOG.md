@@ -4,6 +4,36 @@
 > 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 > 说明：0.2.0 及更早的条目依据 git 历史与 npm 发布时间回填。
 
+## [1.0.1] - 2026-11-07
+
+补丁版。修掉三个工具的「返回体与注册 output schema 脱节、被宿主整包拒收」缺陷，并把这类
+检查变成常驻回归，防止同类问题再次溜进发版。
+
+### 修复
+
+- **`skillmgr_quality` 此前在宿主里不可用**：返回体带 `history` 字段而注册 schema 未声明，
+  宿主按 `additionalProperties: false` 整包打回，连 summary 都出不来。逐键核对返回体后补齐
+  唯一缺失的 `history` 声明
+- **`skillmgr_get` 查询不存在的技能**：handler 返回 `skill: null`，而 schema 只允许对象，
+  同样整包打回。改为查不到时省略该键——渲染侧本来就有「skill 不存在」分支，不影响输出
+- **`skillmgr_snapshot_restore` 此前每一次调用都被宿主拒收，现已修复**。两处脱节：①
+  `preSnapshot` 在拍前置快照失败时可为 `null`，schema 只允许 string，已改为
+  `oneOf: [string, null]`（宿主的 `@deepseek-ai/dsh-tools` 明确拒绝 type 数组，也不认
+  `anyOf`，`oneOf` 是其支持子集里的唯一等价写法）；②返回体恒带 `pendingPulls` 而 schema
+  未声明，`dry-run` 与真恢复都会被整包打回。两处补齐后恢复工具恢复正常
+- 以上改动只落在 schema 与 handler 的返回形状上：`snapshot.js` 的返回体、Web 路由与面板的
+  消费代码一行未动
+
+### 测试
+
+- **新增常驻回归：全部 27 个工具经注册层真实调用 + 宿主校验**。测试从注册表取出每个工具的
+  schema，跑 handler 后把真实返回体交给宿主自身的 `validateJsonSchemaValue` 校验，
+  **0 豁免、0 违规**，没有静默跳过。写类工具各走自己的最小场景（建快照 → dry-run → 真恢复、
+  trash → restore → trash → purge、快照导出导入、候选接受/拒绝），git 同步用伪 HOME 里的
+  bare 仓库当远端，MCP 三件套用 mock stdio 对端真连，LLM 用内存假 provider，全程离线、
+  全程 `mkdtemp` 伪 HOME
+- 27 个 schema 另过一遍 `assertSupportedJsonSchema`，确认每个都落在宿主支持的子集内
+
 ## [1.0.0] - 2026-11-07
 
 首个稳定版。0.8.0 之后的一整轮改进计划全部落地：安全、自动进化、跨机迁移、上游检查、
