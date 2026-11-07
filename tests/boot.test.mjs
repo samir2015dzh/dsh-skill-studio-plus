@@ -126,7 +126,9 @@ const ctx = {
   effect: (fn) => { const d = fn(); return () => (typeof d === "function" ? d() : undefined); },
   get: () => null,
   logger: { info: () => {} },
-  interval: () => () => {}
+  interval: () => () => {},
+
+  on: () => () => {}
 };
 m.apply(ctx, {});
 assert(registered.tools.length === 10 && registered.tools.slice(0, 4).join(",") === "skillmgr_list,skillmgr_get,skillmgr_save,skillmgr_policy", "4 个 skill 工具 + 6 个提取工具注册");
