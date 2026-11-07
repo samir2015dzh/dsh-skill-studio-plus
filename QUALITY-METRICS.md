@@ -120,3 +120,42 @@ lifecycle 文件整体缺失时，`used` 报 `available:false`（不是 0/0 假�
 
 所以 Q-3 真机实测里 provenance 侧 N=0、cohort 为空、比例全部分母为 0 → 报不可得。这是数据现状，
 不是工具缺陷；宿主重启加载新代码后才有数据。
+
+## Q-2 只读聚合工具 `skillmgr_quality`
+
+实现：`lib/quality.js`（聚合）+ `lib/index.js`（工具注册）。无参数，只读，不写任何文件。
+
+数据源与 join：`provenance/` 全部 JSON + `candidates.json` + `skill-lifecycle.json` + 归档目录名 +
+`agentSkillDir` / `mirrorDir` 下的现存名字，全部按 `normalizeName` 归一后 join。
+
+### 输出结构
+
+```
+{
+  ok, message,                       // message = 一行摘要
+  summary,                           // 同上（结构化字段里再给一次）
+  funnel: {
+    available, reason, skippedFiles,
+    all:    { save, fold, drop, total, other, note },
+    window: { days, since, save, fold, drop, total, other }
+  },
+  cohort: {                          // cohort = 最新裁决为 SAVE 的名字
+    n,
+    used:     { count, denominator, ratio, available, reason },
+    active:   { count, denominator, ratio, available, reason },
+    archived: { count, denominator, ratio, available, reason },
+    medianDaysToFirstUse: { available, value, samples, reason }
+  },
+  backlog: { available, reason, pending, oldestCreatedAt, oldestWaitDays },
+  unavailable: [ { metric, reason } ],
+  sources: { provenanceDir, candidatesPath, lifecyclePath, skillRoots, windowDays }
+}
+```
+
+规则：比例一律带 `count` 与 `denominator`；分母为 0、文件缺失、字段缺失时 `available:false` +
+`reason`，`ratio` 为 `null`，不填 0。
+
+- `active` = 名字仍在 skill 根里且 lifecycle 状态不是 `archived`。
+- `archived` = 名字命中归档目录（`archivedNames()` 口径）或 lifecycle 状态为 `archived`。
+- 窗口固定最近 30 天（Q-1 裁定），落在 `funnel.window`。
+
