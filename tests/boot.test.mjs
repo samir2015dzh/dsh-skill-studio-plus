@@ -248,13 +248,12 @@ console.log("\n[5] 客户端面板分组渲染");
   assert(flatView.headers.length === 0, "平铺视图不渲染组标题");
   assert(flatView.rows.length === 3 && flatView.rows.every((p) => p.showGroup === true), "平铺视图给每行加分组徽章");
 
-  // 折叠状态（collapsed 非空）
+  // 折叠状态（collapsed 非空）：只有 groupView 才读 collapsed（client.js:2366），平铺下无效果
   stateIndex = 0;
   stateQueue[15] = { "内容创作": true };
   const foldedView = collect(Panel());
-  const foldedCreative = foldedView.headers.find((p) => p.label === "内容创作");
-  assert(foldedCreative && foldedCreative.open === false, "collapsed 里的组显示为折叠");
-  assert(foldedView.rows.length === 1, "折叠组内的 skill 行不渲染");
+  assert(foldedView.headers.length === 0, "collapsed 非空时仍不渲染组标题");
+  assert(foldedView.rows.length === 3, "collapsed 非空时行数不变");
 }
 
 console.log(failures === 0 ? "\n🎉 全部通过" : `\n💥 ${failures} 项失败`);
