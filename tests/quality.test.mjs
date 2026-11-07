@@ -99,6 +99,24 @@ ok(
 	`无流水时回退按名最新裁决（2 条文件，实际 ${history.withoutEvents.funnel.all.total}）`
 );
 ok(/按名字最新裁决/.test(history.withoutEvents.funnel.all.note), "回退口径的注脚保持原口径");
+
+// ---- 10. M-6：接受/拒绝不再直接删，终局进归档；quality 报历史接受/拒绝 ----
+ok(history.queueAfter.length === 0, `接受+拒绝后候选主表干净（实际 ${history.queueAfter.length} 条）`);
+ok(history.acceptResult?.ok === true && history.rejectResult?.ok === true, "接受与拒绝各走通一次（工具层）");
+ok(history.archive.length === 2, `归档 2 条（实际 ${history.archive.length}）`);
+const acceptedEntry = history.archive.find((e) => e.name === "accepted-cand");
+const rejectedEntry = history.archive.find((e) => e.name === "rejected-cand");
+ok(acceptedEntry?.decision === "accepted" && rejectedEntry?.decision === "rejected", "归档记录裁决结果 accepted / rejected");
+ok(
+	[acceptedEntry, rejectedEntry].every((e) => typeof e?.decidedAt === "string" && e.decidedAt !== "" && typeof e?.id === "string"),
+	"归档记录带 decidedAt 与原始 id"
+);
+ok(history.withEvents.history.available === true && history.withEvents.history.accepted === 1 && history.withEvents.history.rejected === 1, `quality 报出历史接受/拒绝 1/1（实际 ${history.withEvents.history.accepted}/${history.withEvents.history.rejected}）`);
+ok(/历史 接受\/拒绝 1\/1/.test(history.withEvents.summary), "一行摘要含历史接受/拒绝: " + history.withEvents.summary);
+ok(history.withEvents.history.cap === 500 && /归档上限 500 条/.test(history.withEvents.summary), "摘要注明归档上限 500 条");
+ok(history.capResult.dropped === 2 && history.capResult.total === 500, `超过上限丢弃最旧 2 条（dropped=${history.capResult.dropped}, total=${history.capResult.total}）`);
+ok(history.archiveAfterCap.length === 500 && history.archiveAfterCap.first === "fill-0", "归档只留最近 500 条，最旧的是新批次第一条");
+
 rmSync(historyHome, { recursive: true, force: true });
 
 rmSync(home, { recursive: true, force: true });
