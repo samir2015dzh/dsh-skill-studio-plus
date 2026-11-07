@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { execFileSync } from "node:child_process";
 import { applyDarwin } from "../lib/darwin.js";
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "darwin-test-"));
@@ -75,6 +76,7 @@ const pendingBlock = (text) => {
 	ok(MEMBERS.every((m) => block.includes(m)), "无 families.json 时成员全部进体检");
 	ok(block.includes(HOST), "宿主也进体检");
 	ok(text.includes("9 维 rubric"), "提示文本完整");
+	ok(!text.includes("上游已有新版"), "无上游信息时不提示上游（U-1）");
 }
 
 // ---- 2. 有 families.json：成员折叠，只留宿主
@@ -198,6 +200,74 @@ const pendingBlock = (text) => {
 	const ctx = { on: (ev, fn) => h.set(ev, fn), logger: { info: () => {}, warn: () => {} } };
 	applyDarwin(ctx, { enabled: false, roots: [skills] }, {});
 	ok(h.size === 0, "enabled:false 时不注册任何事件");
+}
+
+// ---- 9. 上游提示（U-1）：本地 bare 仓库充当 origin ----
+{
+	seq += 1;
+	const base = path.join(root, `up-${seq}`);
+	const origin = path.join(base, "upstream.git");
+	const work = path.join(base, "git-skill");
+	fs.mkdirSync(work, { recursive: true });
+	fs.mkdirSync(path.join(base, "darwin-skill"), { recursive: true });
+	fs.writeFileSync(path.join(base, "darwin-skill", "SKILL.md"), "---\nname: darwin-skill\ndescription: 本体\n---\nbody");
+	fs.writeFileSync(path.join(work, "SKILL.md"), "---\nname: git-skill\ndescription: d\n---\nbody");
+
+	const git = (dir, args) =>
+		execFileSync("git", ["-C", dir, "-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", ...args], {
+			encoding: "utf8",
+			stdio: "pipe",
+		}).trim();
+	git(base, ["init", "--bare", "-b", "main", origin]);
+	git(work, ["init", "-b", "main"]);
+	git(work, ["add", "-A"]);
+	git(work, ["commit", "--no-verify", "-m", "init"]);
+	git(work, ["remote", "add", "origin", origin]);
+	git(work, ["push", "-u", "origin", "main"]);
+
+	// 空 lock：本场景只走 .git 定源，不受真机 skill-lock.json 影响
+	const lockFile = path.join(base, "lock.json");
+	fs.writeFileSync(lockFile, "{}");
+	const cfg = () => ({ roots: [base], lockFile, upstreamTtlMs: 0 });
+	const touch = (h) =>
+		h.get("tools/post-execute")({ name: "write", arguments: { file_path: path.join(work, "SKILL.md") } }, {}, async () => {});
+
+	// 9a. 本地与上游一致：静默，待评估清单照常
+	{
+		const { h } = scene(cfg());
+		await touch(h);
+		const text = await sectionText(h);
+		ok(!text.includes("上游已有新版"), "上游无新提交时不提示（U-1）");
+		ok(pendingBlock(text).includes("git-skill"), "无差异时优化清单不受影响（U-1）");
+	}
+
+	// 9b. 上游推了新提交：给出短 sha 提示
+	{
+		const other = path.join(base, "clone");
+		git(base, ["clone", origin, other]);
+		fs.writeFileSync(path.join(other, "NEW.md"), "new\n");
+		git(other, ["add", "-A"]);
+		git(other, ["commit", "--no-verify", "-m", "upstream new"]);
+		git(other, ["push", "origin", "main"]);
+		const short = git(other, ["rev-parse", "HEAD"]).slice(0, 7);
+
+		const { h } = scene(cfg());
+		await touch(h);
+		const text = await sectionText(h);
+		ok(text.includes(`上游已有新版（${short}）`), "上游有新提交时提示短 sha: " + short);
+		ok(text.includes("本次优化仍基于本地版本"), "提示带「仍基于本地版本」（U-1）");
+		ok(pendingBlock(text).includes("git-skill"), "提示不挤掉待评估清单（U-1）");
+	}
+
+	// 9c. 有上游但远端不可达：静默跳过，主流程不中断
+	{
+		git(work, ["remote", "set-url", "origin", path.join(base, "missing.git")]);
+		const { h } = scene({ ...cfg(), upstreamTimeoutMs: 3000 });
+		await touch(h);
+		const text = await sectionText(h);
+		ok(!text.includes("上游已有新版"), "网络/远端失败时静默（U-1）");
+		ok(text.includes("9 维 rubric"), "失败时优化主流程照旧（U-1）");
+	}
 }
 
 fs.rmSync(root, { recursive: true, force: true });
