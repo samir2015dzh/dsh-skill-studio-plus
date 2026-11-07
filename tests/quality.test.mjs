@@ -160,6 +160,34 @@ ok(
 	`只读工具实跑并通过注册层 schema 校验（${history.liveChecks.length} 个：${history.liveChecks.map((c) => c.name.replace("skillmgr_", "")).join(", ")}；异常：${bad.map((c) => c.name + "→" + (c.error ?? c.violations.join("; "))).join(" | ") || "无"}）`
 );
 
+// ---- 13. F-3：restore 的 preSnapshot 允许 null（同样是宿主口径，走注册 schema + 返回体样本） ----
+const { validateJsonSchemaValue, assertSupportedJsonSchema } = await import("@deepseek-ai/dsh-tools");
+const restoreSchema = history.restoreSchema;
+try {
+	assertSupportedJsonSchema(restoreSchema);
+	ok(true, "restore 注册 schema 通过宿主 assertSupportedJsonSchema（oneOf 在宿主支持的写法子集内）");
+} catch (error) {
+	ok(false, "restore 注册 schema 未通过宿主 assertSupportedJsonSchema: " + String(error?.message ?? error));
+}
+const pref = restoreSchema.properties.preSnapshot ?? {};
+ok(pref.type === undefined && Array.isArray(pref.oneOf) && pref.oneOf.length === 2, `preSnapshot 声明成 oneOf 两分支（实际 ${JSON.stringify(pref)}）`);
+// 样本只覆盖 F-3 相关键；真实 body 另带未声明的 pendingPulls（见本段末尾的已知待裁定断言）
+const restoreBodyNull = { ok: true, id: "snap-fixture", dryRun: false, total: 2, create: 2, overwrite: 0, same: 0, written: 2, preSnapshot: null, remapped: 0, rejected: 0, failed: [], plan: [], rejectedPaths: [] };
+const legacySchema = structuredClone(restoreSchema);
+legacySchema.properties.preSnapshot = { type: "string" }; // F-3 修复前的原声明
+const beforeFix = validateJsonSchemaValue(legacySchema, restoreBodyNull, "value");
+ok(beforeFix.some((v) => /preSnapshot/.test(v)), `修复前形态把 null 打回：${beforeFix.join("; ")}`);
+const afterFix = validateJsonSchemaValue(restoreSchema, restoreBodyNull, "value");
+ok(afterFix.length === 0, `修复后形态接受 null：${afterFix.join("; ") || "0 违规"}`);
+const afterFixString = validateJsonSchemaValue(restoreSchema, { ...restoreBodyNull, preSnapshot: "snap-pre-restore" }, "value");
+ok(afterFixString.length === 0, `string 分支仍然通过：${afterFixString.join("; ") || "0 违规"}`);
+// 已知待裁定（F-3 不修）：真实 restore body 的 pendingPulls 未在 schema 声明，additionalProperties:false 会整包打回
+const pendingPullsViolations = validateJsonSchemaValue(restoreSchema, { ...restoreBodyNull, pendingPulls: [] }, "value");
+ok(
+	pendingPullsViolations.length > 0 && pendingPullsViolations.every((v) => /pendingPulls/.test(v)),
+	`已知待裁定：pendingPulls 未声明 → ${pendingPullsViolations.join("; ")}`
+);
+
 rmSync(historyHome, { recursive: true, force: true });
 
 rmSync(home, { recursive: true, force: true });

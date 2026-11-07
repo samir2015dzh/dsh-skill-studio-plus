@@ -90,6 +90,8 @@ const toolShape = [...tools.values()].map((t) => ({
 	schemaKeys: Object.keys(t.output?.schema?.properties ?? {}).length,
 	strict: t.output?.schema?.additionalProperties === false
 }));
+// F-3：restore 的注册 schema 原文，供测试用「返回体样本 + 注册 schema」验 preSnapshot 的类型契约
+const restoreSchema = tools.get("skillmgr_snapshot_restore").output.schema;
 
 // 只读工具能安全跑完，就一并过同一个校验器；会写盘 / 联网 / 动 MCP 的留源码核对。
 const READONLY = ["skillmgr_list", "skillmgr_get", "skillmgr_trash_list", "skillmgr_snapshot_list", "skillmgr_pull_pending", "skillmgr_extract_status", "skillmgr_extract_list"];
@@ -138,6 +140,7 @@ process.stdout.write(
 		archiveAfterCap: { length: archiveAfterCap.length, first: archiveAfterCap[0]?.name, last: archiveAfterCap[archiveAfterCap.length - 1]?.name },
 		qualitySchema,
 		toolShape,
+		restoreSchema,
 		liveChecks
 	})
 );
