@@ -159,3 +159,43 @@ lifecycle 文件整体缺失时，`used` 报 `available:false`（不是 0/0 假�
 - `archived` = 名字命中归档目录（`archivedNames()` 口径）或 lifecycle 状态为 `archived`。
 - 窗口固定最近 30 天（Q-1 裁定），落在 `funnel.window`。
 
+## Q-3 校验与真机实测
+
+### 伪 HOME fixture
+
+`tests/fixtures/quality-home.mjs` 在伪 HOME 里手工构造三份数据，`tests/quality.test.mjs` 逐项断言：
+
+| 数据 / 用例 | 期望值 |
+| --- | --- |
+| provenance：alpha（SAVE，10 天前）、beta（SAVE，40 天前）、gamma（FOLD_INTO→alpha，5 天前）、delta（tombstone，3 天前） | 全量 SAVE/FOLD/DROP = 2/1/1，4 个文件 |
+| 窗口（30 天） | 3 条：beta 被排除 |
+| cohort | N=2（alpha、beta） |
+| used | 1/2（beta 的 lifecycle 记录缺 `lastUsedAt`，不算 used，也不报不可得） |
+| active | 1/2（只有 alpha 仍在 skill 根） |
+| archived | 1/2（beta 命中 `skill-archive-*` 目录） |
+| 首次使用距入库中位数 | `available:false`，原因指向缺 `firstUsedAt` |
+| candidates：3 条 pending（1 条缺 `created`）+ 1 条 accepted | pending 3，最老等待 2 天 |
+| 删掉 provenance + lifecycle 后重跑 | 漏斗 / used 报不可得，`ratio` 为 `null` 而不是 0 |
+| 两次聚合前后的伪 HOME 文件 sha256 | 完全一致（工具不写文件） |
+
+`node tests/quality.test.mjs` → 23 条断言全过；已加入 `npm test`。
+
+### 真机实测（2026-11-07 14:10，只读）
+
+```
+漏斗 SAVE/FOLD/DROP 不可得（全量 0 条文件；近 30 天 0 条）｜cohort 0：used 不可得、active 不可得、归档 不可得｜积压 3 条，最老 0.25 天
+```
+
+| 项 | 实测 |
+| --- | --- |
+| provenance | 目录不存在，0 条文件 → 漏斗不可得 |
+| cohort | N=0 → 三个比例分母为 0，全部不可得 |
+| 首次使用距入库中位数 | 不可得（缺 `firstUsedAt`） |
+| 候选积压 | 3 条 pending，最老一条 `created` = 2026-11-07T00:06:53.675Z，等待 0.25 天 |
+
+如实说明：**真机样本为 0**，不是「比例很好」。原因就是 Q-1 第 5 条 —— 当前宿主实例（2026-11-06 10:14 启动）
+不含 provenance / lifecycle 写入点，所以这两份数据一条都没有；工具逻辑由 fixture 证明，真机 cohort 要等宿主
+重启加载新代码后才开始积累。工具在真机上是直接以 node 调用同一批只读路径跑的（宿主里的 `skillmgr_quality`
+要等重启才注册），跑完 `~/.dsh` 与 skill 根无任何改动。
+
+
