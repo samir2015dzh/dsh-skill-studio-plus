@@ -194,6 +194,58 @@ const pendingPullsFilled = validateJsonSchemaValue(
 );
 ok(pendingPullsFilled.length === 0, `pendingPulls 带真实条目也 0 违规：${pendingPullsFilled.join("; ") || "0 违规"}`);
 
+// ---- 14. F-4：全部 27 个工具的注册层 schema 常驻校验（一个不漏；豁免项必须列名并写理由） ----
+const allHome = mkdtempSync(path.join(os.tmpdir(), "dsh-studio-all-tools-"));
+const allRun = spawnSync(process.execPath, [path.join(here, "fixtures", "all-tools-home.mjs")], {
+	env: {
+		...process.env,
+		USERPROFILE: allHome,
+		HOME: allHome,
+		DSH_HOME: path.join(allHome, ".dsh"),
+		DSH_AGENTS_HOME: "",
+		DSH_SKILL_EXTRACTOR_CANDIDATES: ""
+	},
+	encoding: "utf8",
+	timeout: 180000
+});
+if (allRun.status !== 0) {
+	console.error(allRun.stderr || allRun.stdout);
+	rmSync(allHome, { recursive: true, force: true });
+	rmSync(historyHome, { recursive: true, force: true });
+	rmSync(home, { recursive: true, force: true });
+	process.exit(1);
+}
+const all = JSON.parse(allRun.stdout);
+const ALL_TOOL_COUNT = 27;
+ok(all.count === ALL_TOOL_COUNT, `注册表里共 ${all.count} 个工具（期望 ${ALL_TOOL_COUNT}）`);
+ok(all.profileImported === true, "profile 里的原生 MCP 已导入注册表（mcp_takeover 的调用前提）");
+const schemaBad = all.schemaChecks.filter((c) => !c.ok);
+ok(
+	all.schemaChecks.length === ALL_TOOL_COUNT && schemaBad.length === 0,
+	`${ALL_TOOL_COUNT} 个 output schema 全过宿主 assertSupportedJsonSchema（失败：${schemaBad.map((c) => c.name + "→" + c.reason).join(" | ") || "无"}）`
+);
+const liveAll = all.checks.filter((c) => c.mode === "live");
+const exemptAll = all.checks.filter((c) => c.mode === "exempt");
+const missingAll = all.checks.filter((c) => c.mode !== "live" && c.mode !== "exempt");
+const badAll = liveAll.filter((c) => c.error !== undefined || c.violationCount > 0);
+ok(missingAll.length === 0, `每个工具都有结论，没有静默跳过（漏：${missingAll.map((c) => c.name).join(", ") || "无"}）`);
+ok(
+	badAll.length === 0,
+	`全部工具经注册层真实调用 0 违规（实跑 ${liveAll.length} 次，覆盖 ${new Set(liveAll.map((c) => c.name)).size} 个工具；异常：${
+		badAll.map((c) => c.name + "→" + (c.error ?? c.violations.join("; "))).join(" | ") || "无"
+	}）`
+);
+ok(
+	exemptAll.every((c) => typeof c.reason === "string" && c.reason !== ""),
+	`豁免项单列且写明理由（豁免：${exemptAll.map((c) => c.name + "→" + c.reason).join(" | ") || "无"}）`
+);
+const coveredAll = new Set(all.checks.map((c) => c.name));
+ok(
+	all.toolNames.every((name) => coveredAll.has(name)),
+	`${ALL_TOOL_COUNT} 个工具逐个都有结论（未覆盖：${all.toolNames.filter((name) => !coveredAll.has(name)).join(", ") || "无"}）`
+);
+rmSync(allHome, { recursive: true, force: true });
+
 rmSync(historyHome, { recursive: true, force: true });
 
 rmSync(home, { recursive: true, force: true });
