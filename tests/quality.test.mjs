@@ -171,7 +171,7 @@ try {
 }
 const pref = restoreSchema.properties.preSnapshot ?? {};
 ok(pref.type === undefined && Array.isArray(pref.oneOf) && pref.oneOf.length === 2, `preSnapshot 声明成 oneOf 两分支（实际 ${JSON.stringify(pref)}）`);
-// 样本只覆盖 F-3 相关键；真实 body 另带未声明的 pendingPulls（见本段末尾的已知待裁定断言）
+// 样本只覆盖 F-3 相关键；pendingPulls 由本段末尾单独验（F-4 已补声明）
 const restoreBodyNull = { ok: true, id: "snap-fixture", dryRun: false, total: 2, create: 2, overwrite: 0, same: 0, written: 2, preSnapshot: null, remapped: 0, rejected: 0, failed: [], plan: [], rejectedPaths: [] };
 const legacySchema = structuredClone(restoreSchema);
 legacySchema.properties.preSnapshot = { type: "string" }; // F-3 修复前的原声明
@@ -181,12 +181,18 @@ const afterFix = validateJsonSchemaValue(restoreSchema, restoreBodyNull, "value"
 ok(afterFix.length === 0, `修复后形态接受 null：${afterFix.join("; ") || "0 违规"}`);
 const afterFixString = validateJsonSchemaValue(restoreSchema, { ...restoreBodyNull, preSnapshot: "snap-pre-restore" }, "value");
 ok(afterFixString.length === 0, `string 分支仍然通过：${afterFixString.join("; ") || "0 违规"}`);
-// 已知待裁定（F-3 不修）：真实 restore body 的 pendingPulls 未在 schema 声明，additionalProperties:false 会整包打回
+// F-4：restore 的 summary 恒带 pendingPulls，schema 必须声明它（未声明时 additionalProperties:false 整包打回）
 const pendingPullsViolations = validateJsonSchemaValue(restoreSchema, { ...restoreBodyNull, pendingPulls: [] }, "value");
-ok(
-	pendingPullsViolations.length > 0 && pendingPullsViolations.every((v) => /pendingPulls/.test(v)),
-	`已知待裁定：pendingPulls 未声明 → ${pendingPullsViolations.join("; ")}`
+ok(pendingPullsViolations.length === 0, `pendingPulls 已声明，空数组 0 违规：${pendingPullsViolations.join("; ") || "0 违规"}`);
+const pendingPullsFilled = validateJsonSchemaValue(
+	restoreSchema,
+	{
+		...restoreBodyNull,
+		pendingPulls: [{ name: "big-skill", repo: "https://example.invalid/org/repo", ref: "main", sha: "a".repeat(40), subdir: "" }]
+	},
+	"value"
 );
+ok(pendingPullsFilled.length === 0, `pendingPulls 带真实条目也 0 违规：${pendingPullsFilled.join("; ") || "0 违规"}`);
 
 rmSync(historyHome, { recursive: true, force: true });
 
