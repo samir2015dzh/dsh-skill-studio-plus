@@ -68,6 +68,39 @@ ok(partial.backlog.pending === 3, "candidates 仍在 → 积压照常可算");
 ok(JSON.stringify(before1) === JSON.stringify(after1), "第一次聚合未改动伪 HOME 中任何文件");
 ok(JSON.stringify(before2) === JSON.stringify(after2), "第二次聚合未改动伪 HOME 中任何文件");
 
+// ---- 9. M-5：同一 skill 连续 SAVE→FOLD，按名文件留最终裁决、事件流水可按事件计数 ----
+const historyHome = mkdtempSync(path.join(os.tmpdir(), "dsh-studio-quality-history-"));
+const historyRun = spawnSync(process.execPath, [path.join(here, "fixtures", "quality-history-home.mjs"), historyHome, String(NOW)], {
+	env: { ...process.env, USERPROFILE: historyHome, HOME: historyHome, DSH_AGENTS_HOME: "", DSH_SKILL_EXTRACTOR_CANDIDATES: "" },
+	encoding: "utf8"
+});
+if (historyRun.status !== 0) {
+	console.error(historyRun.stderr || historyRun.stdout);
+	rmSync(historyHome, { recursive: true, force: true });
+	rmSync(home, { recursive: true, force: true });
+	process.exit(1);
+}
+const history = JSON.parse(historyRun.stdout);
+ok(history.byName.action === "FOLD_INTO" && history.byName.into === "host-skill", "按名文件保留最终裁决（FOLD_INTO → host-skill）");
+ok(history.byName.rationale === "第二次裁决：FOLD", "按名文件保留最终那次裁决的理由");
+ok(history.mergeMeEvents === 2, "同一 skill 的两次裁决都进了事件流水（实际 " + history.mergeMeEvents + " 条）");
+ok(
+	history.events.every((e) => ["at", "name", "action", "rationale"].every((key) => key in e)),
+	"事件流水字段齐全：at/name/action/rationale"
+);
+ok(history.withEvents.funnel.source === "events", "有事件流水时漏斗按事件计数");
+ok(
+	history.withEvents.funnel.all.total === 3 && history.withEvents.funnel.all.save === 2 && history.withEvents.funnel.all.fold === 1,
+	`按事件计 3 条：SAVE 2 / FOLD 1（实际 ${history.withEvents.funnel.all.total}/${history.withEvents.funnel.all.save}/${history.withEvents.funnel.all.fold}）`
+);
+ok(/按事件计数/.test(history.withEvents.funnel.all.note), "口径注脚写明按事件计数: " + history.withEvents.funnel.all.note);
+ok(
+	history.withoutEvents.funnel.source === "by-name" && history.withoutEvents.funnel.all.total === 2,
+	`无流水时回退按名最新裁决（2 条文件，实际 ${history.withoutEvents.funnel.all.total}）`
+);
+ok(/按名字最新裁决/.test(history.withoutEvents.funnel.all.note), "回退口径的注脚保持原口径");
+rmSync(historyHome, { recursive: true, force: true });
+
 rmSync(home, { recursive: true, force: true });
 console.log(fails === 0 ? "\n=== ALL PASS" : `\n=== ${fails} FAILED`);
 process.exitCode = fails ? 1 : 0;
