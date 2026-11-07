@@ -142,6 +142,24 @@ ok(
 );
 ok(full.unavailable.some((u) => u.metric === "平均使用次数"), "不可得的平均使用次数进入 unavailable 清单");
 
+// ---- 12. F-2：注册层 output schema 与 handler 返回体必须一致（宿主口径，不是 lib 层口径） ----
+const qs = history.qualitySchema;
+ok(qs.violations.length === 0, `skillmgr_quality 返回体通过宿主 output schema 校验（校验器 ${qs.checker}；违规 ${qs.violations.length} 条：${qs.violations.join("; ") || "无"}）`);
+ok(qs.schemaKeys.includes("history"), "注册 schema 声明了 history 键");
+ok(qs.valueKeys.includes("history"), "handler 实际返回 history 键（修 schema，不删字段）");
+ok(
+	qs.valueKeys.every((key) => qs.schemaKeys.includes(key)),
+	`返回体每个顶层键都被声明（返回 ${qs.valueKeys.length} 个 / 声明 ${qs.schemaKeys.length} 个；未声明：${qs.valueKeys.filter((k) => !qs.schemaKeys.includes(k)).join(", ") || "无"}）`
+);
+ok(qs.history?.accepted === 1 && qs.history?.rejected === 1, `经注册层调用拿到的 history 仍是真实数据 1/1（实际 ${qs.history?.accepted}/${qs.history?.rejected}）`);
+ok(history.toolShape.length === 27, `注册表里共 ${history.toolShape.length} 个工具（期望 27）`);
+ok(history.toolShape.every((t) => t.hasSchema), `全部工具都声明了 output schema（缺声明的：${history.toolShape.filter((t) => !t.hasSchema).map((t) => t.name).join(", ") || "无"}）`);
+const bad = history.liveChecks.filter((c) => c.error !== undefined || c.violations.length > 0);
+ok(
+	bad.length === 0,
+	`只读工具实跑并通过注册层 schema 校验（${history.liveChecks.length} 个：${history.liveChecks.map((c) => c.name.replace("skillmgr_", "")).join(", ")}；异常：${bad.map((c) => c.name + "→" + (c.error ?? c.violations.join("; "))).join(" | ") || "无"}）`
+);
+
 rmSync(historyHome, { recursive: true, force: true });
 
 rmSync(home, { recursive: true, force: true });

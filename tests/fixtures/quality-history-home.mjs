@@ -64,6 +64,47 @@ const legacy = (await loadState()).legacy;
 // ---- 聚合（事件流水在的时候）
 const withEvents = await collectQualityMetrics({ now });
 
+// ---- F-2：注册层 output schema 校验。宿主跑完工具就是这个口径：schema 里没声明的顶层键
+// 会被整包打回（INVALID_TOOL_OUTPUT），所以这里直接拿注册表里的工具定义跑 handler，
+// 再交给宿主同一份校验器。直调 lib 层（上面那些 collectQualityMetrics）过不了这一关。
+const qualityTool = tools.get("skillmgr_quality");
+const qualityValue = await qualityTool.execute({});
+const { validateJsonSchemaValue } = await import("@deepseek-ai/dsh-tools").catch(() => ({}));
+const schemaViolations =
+	typeof validateJsonSchemaValue === "function"
+		? validateJsonSchemaValue(qualityTool.output.schema, qualityValue, "value")
+		: Object.keys(qualityValue)
+				.filter((key) => !Object.hasOwn(qualityTool.output.schema.properties ?? {}, key))
+				.map((key) => `"value.${key}" is not a declared property (additionalProperties: false)`);
+const qualitySchema = {
+	checker: typeof validateJsonSchemaValue === "function" ? "host:validateJsonSchemaValue" : "local:declared-keys",
+	schemaKeys: Object.keys(qualityTool.output.schema.properties ?? {}).sort(),
+	valueKeys: Object.keys(qualityValue).sort(),
+	violations: schemaViolations,
+	history: qualityValue.history,
+	summary: qualityValue.summary
+};
+const toolShape = [...tools.values()].map((t) => ({
+	name: t.name,
+	hasSchema: typeof t.output?.schema === "object",
+	schemaKeys: Object.keys(t.output?.schema?.properties ?? {}).length,
+	strict: t.output?.schema?.additionalProperties === false
+}));
+
+// 只读工具能安全跑完，就一并过同一个校验器；会写盘 / 联网 / 动 MCP 的留源码核对。
+const READONLY = ["skillmgr_list", "skillmgr_get", "skillmgr_trash_list", "skillmgr_snapshot_list", "skillmgr_pull_pending", "skillmgr_extract_status", "skillmgr_extract_list"];
+const liveChecks = [];
+for (const name of READONLY) {
+	const tool = tools.get(name);
+	try {
+		const value = await tool.execute(name === "skillmgr_get" ? { name: "no-such-skill" } : {});
+		const violations = typeof validateJsonSchemaValue === "function" ? validateJsonSchemaValue(tool.output.schema, value, "value") : [];
+		liveChecks.push({ name, keys: Object.keys(value).length, violations: violations.slice(0, 5) });
+	} catch (error) {
+		liveChecks.push({ name, error: String(error?.message ?? error) });
+	}
+}
+
 // 对照：去掉事件流水，回退「按名最新裁决」
 const rawEvents = readFileSync(provenanceEventsFile(), "utf8");
 rmSync(provenanceEventsFile());
@@ -74,6 +115,7 @@ writeFileSync(provenanceEventsFile(), rawEvents, "utf8");
 const fillers = Array.from({ length: CANDIDATE_ARCHIVE_LIMIT }, (_, i) => ({ id: "fill-" + i, name: "fill-" + i, status: "pending", body: "" }));
 const capResult = await archiveCandidates(fillers, { decision: "rejected" });
 const archiveAfterCap = await loadCandidateArchive();
+
 
 process.stdout.write(
 	JSON.stringify({
@@ -93,6 +135,9 @@ process.stdout.write(
 		legacy,
 		capResult,
 		cap: CANDIDATE_ARCHIVE_LIMIT,
-		archiveAfterCap: { length: archiveAfterCap.length, first: archiveAfterCap[0]?.name, last: archiveAfterCap[archiveAfterCap.length - 1]?.name }
+		archiveAfterCap: { length: archiveAfterCap.length, first: archiveAfterCap[0]?.name, last: archiveAfterCap[archiveAfterCap.length - 1]?.name },
+		qualitySchema,
+		toolShape,
+		liveChecks
 	})
 );
