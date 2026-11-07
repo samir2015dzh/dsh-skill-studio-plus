@@ -131,9 +131,9 @@ const ctx = {
   on: () => () => {}
 };
 m.apply(ctx, {});
-assert(registered.tools.length === 10 && registered.tools.slice(0, 4).join(",") === "skillmgr_list,skillmgr_get,skillmgr_save,skillmgr_policy", "4 个 skill 工具 + 6 个提取工具注册");
+assert(registered.tools.length === 24 && registered.tools.slice(0, 4).join(",") === "skillmgr_list,skillmgr_get,skillmgr_save,skillmgr_policy", "24 个工具注册（19 skillmgr + 5 mcp），首四名不变");
 assert(registered.tools.includes("skillmgr_extract_run") && registered.tools.includes("skillmgr_extract_accept"), "提取工具已注册");
-assert(registered.routes.length === 10, "10 条路由注册（3 skill + 7 提取）");
+assert(registered.routes.length === 32, "32 条路由注册（16 基础 + 9 提取 + 7 MCP）");
 assert(registered.sections.length === 1, "系统提示段落注册");
 
 // runtime skill 走 registry 摘要缓存（index.js:381-415）：首次 listSkills 只触发后台预热，
