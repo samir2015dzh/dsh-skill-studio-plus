@@ -198,14 +198,17 @@ console.log("\n[5] 客户端面板分组渲染");
     useCallback: (fn) => fn,
     useEffect: () => {}
   };
-  let Panel = null;
+  // 三个设置页都会注册（client.js:2484/2499/2514），按 meta.id 存，
+  // 取面板按 id 而不是注册顺序——顺序取到的是最后注册的 SnapshotPanel。
+  const panels = new Map();
   const clientExports = captured.factory((name) => (name === "react" ? fakeReact : undefined));
   clientExports.apply({
     slots: {
       inject: (_name, callback) => { callback(); return () => {}; },
-      register: (_meta, component) => { Panel = component; return () => {}; }
+      register: (meta, component) => { panels.set(meta.id, component); return () => {}; }
     }
   });
+  const Panel = panels.get("skill-manager");
   assert(typeof Panel === "function", "面板组件注册到 settings.section");
 
   /** Walk a fake element tree and collect GroupHeader / SkillRow element props. */
