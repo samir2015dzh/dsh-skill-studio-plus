@@ -106,7 +106,7 @@ assert(grouped && grouped.metadata && grouped.metadata.group === "内容创作",
 assert(scanned.find((s) => s.name === "demo-skill").group === "", "无 metadata 的 skill 分组为空字符串");
 assert(scanned.find((s) => s.name === "demo-skill").tags.length === 0, "无 metadata 的 skill tags 为空数组");
 const found = await findSkillByName("brainstorming", tmp);
-assert(found && found.path.endsWith("brainstorming/SKILL.md"), "findSkillByName 命中嵌套");
+assert(found && found.path.endsWith(path.join("brainstorming", "SKILL.md")), "findSkillByName 命中嵌套");
 
 // ---------- 3. 模拟 boot apply + 合并 ----------
 console.log("\n[3] 模拟 boot apply + 合并");
