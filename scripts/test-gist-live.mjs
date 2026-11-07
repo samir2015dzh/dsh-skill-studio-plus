@@ -14,8 +14,8 @@ if (!m) {
 }
 const token = m[2];
 
-const S = await import("file:///D:/dsh-plugins/dsh-studio/lib/sync.js");
-const M = await import("file:///D:/dsh-plugins/dsh-studio/lib/snapshot.js");
+const S = await import(new URL("../lib/sync.js", import.meta.url).href);
+const M = await import(new URL("../lib/snapshot.js", import.meta.url).href);
 
 const fails = [];
 const ok = (name, cond, extra = "") => {

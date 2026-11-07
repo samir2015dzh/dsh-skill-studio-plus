@@ -39,7 +39,9 @@
     "release:check": "node scripts/release.mjs --check",
     "verify": "node scripts/portability.mjs --health /api/dsh-studio/list",
     "verify:full": "node scripts/portability.mjs --health /api/dsh-studio/list --stability 30",
-    "verify:quick": "node scripts/portability.mjs --skip-audit --stability 5 --health /api/dsh-studio/list"
+    "verify:quick": "node scripts/portability.mjs --skip-audit --stability 5 --health /api/dsh-studio/list",
+    "test": "node tests/darwin.test.mjs",
+    "test:boot": "node tests/boot.test.mjs"
   },
   "keywords": [
     "dsh",

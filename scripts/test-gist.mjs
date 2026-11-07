@@ -3,8 +3,8 @@
 //   1. 缺 token / gistId 时报错清楚，不是静默失败
 //   2. 请求体结构对不对（files / base64 / public:false）—— 拦 fetch 看发出去的 body
 //   3. 403/404 这类远端错误会不会被当成成功
-const S = await import("file:///D:/dsh-plugins/dsh-studio/lib/sync.js");
-const M = await import("file:///D:/dsh-plugins/dsh-studio/lib/snapshot.js");
+const S = await import(new URL("../lib/sync.js", import.meta.url).href);
+const M = await import(new URL("../lib/snapshot.js", import.meta.url).href);
 
 const fails = [];
 const ok = (name, cond, extra = "") => {

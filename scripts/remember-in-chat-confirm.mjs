@@ -7,8 +7,8 @@
  */
 import fs from 'node:fs'
 
-const EX = 'D:/dsh-plugins/dsh-skill-studio/lib/extractor.js'
-const IX = 'D:/dsh-plugins/dsh-skill-studio/lib/index.js'
+const EX = fileURLToPath(new URL("../lib/extractor.js", import.meta.url))
+const IX = fileURLToPath(new URL("../lib/index.js", import.meta.url))
 const log = []
 
 // ---------- 1. extractor：带回用户原话 ----------

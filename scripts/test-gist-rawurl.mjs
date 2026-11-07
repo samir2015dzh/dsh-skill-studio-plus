@@ -1,7 +1,7 @@
 // 专门验 raw_url 这条路：超过 ~1 MB 的 Gist 文件 GitHub 只给 truncated content，
 // 要走 raw_url。raw_url 返回的是**原始字节**，不是 base64 —— 这两种输入必须分开处理。
-const S = await import("file:///D:/dsh-plugins/dsh-studio/lib/sync.js");
-const M = await import("file:///D:/dsh-plugins/dsh-studio/lib/snapshot.js");
+const S = await import(new URL("../lib/sync.js", import.meta.url).href);
+const M = await import(new URL("../lib/snapshot.js", import.meta.url).href);
 
 const fails = [];
 const ok = (name, cond, extra = "") => {

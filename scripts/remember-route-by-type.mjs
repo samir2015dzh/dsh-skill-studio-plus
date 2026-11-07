@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs'
 
-const P = 'D:/dsh-plugins/dsh-skill-studio/lib/index.js'
+const P = fileURLToPath(new URL("../lib/index.js", import.meta.url))
 const lines = fs.readFileSync(P, 'utf8').split('\n')
 
 const start = lines.findIndex((l) => l.includes('待确认的「记住」请求'))

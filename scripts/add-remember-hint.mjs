@@ -5,7 +5,7 @@
  */
 import fs from 'node:fs'
 
-const P = 'D:/dsh-plugins/dsh-skill-studio/lib/extractor.js'
+const P = fileURLToPath(new URL("../lib/extractor.js", import.meta.url))
 let t = fs.readFileSync(P, 'utf8')
 const log = []
 
