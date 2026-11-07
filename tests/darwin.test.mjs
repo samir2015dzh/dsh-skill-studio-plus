@@ -22,6 +22,10 @@ for (const name of [HOST, ...MEMBERS]) {
 	fs.writeFileSync(path.join(skills, name, "SKILL.md"), `---\nname: ${name}\ndescription: 同一个职责\n---\nbody`);
 }
 
+// darwin-skill 本体：注入逻辑先查它装没装（WO-EVO-5），装了才给评估步骤
+fs.mkdirSync(path.join(skills, "darwin-skill"), { recursive: true });
+fs.writeFileSync(path.join(skills, "darwin-skill", "SKILL.md"), "---\nname: darwin-skill\ndescription: 本体\n---\nbody");
+
 let fails = 0;
 const ok = (cond, msg) => {
 	if (cond) console.log("  ok   " + msg);
@@ -133,6 +137,58 @@ const pendingBlock = (text) => {
 		async () => {},
 	);
 	ok((await sectionText(h)) === "", "roots 外的 SKILL.md 不触发");
+}
+
+// ---- 6. results.tsv 回收：回写了结果才算评过（WO-EVO-5）
+{
+	const resultsFile = path.join(root, `results-${seq + 1}.tsv`);
+	const { h, stateFile } = scene({ resultsFile });
+	await writeSkill(h, HOST);
+	fs.writeFileSync(
+		resultsFile,
+		[
+			"timestamp\tcommit\t" + "skill\told_score\tnew_score\tstatus\tdimension\tnote\teval_mode",
+			`${new Date().toISOString().slice(0, 16)}\tabc1234\t${HOST}\t58\t82\tkeep\tstructure\t结构补全\tpaired`,
+		].join("\n") + "\n",
+	);
+	await sectionText(h);
+	const st = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+	const key = path.resolve(path.join(skills, HOST, "SKILL.md")).toLowerCase();
+	ok(st.scores[key] > 0, "results.tsv 回收后 state.scores 记分");
+	ok(st.results?.[HOST]?.newScore === "82", "state.results 记下分数");
+	ok(st.results?.[HOST]?.status === "keep", "state.results 记下结论");
+	ok(st.results?.[HOST]?.evalMode === "paired", "state.results 记下 eval_mode");
+	ok((await sectionText(h)) === "", "回收后 pending 清空，下轮不再提");
+}
+
+// ---- 7. 只加载 darwin-skill 不写结果：pending 保留，下轮再提
+{
+	const { h, stateFile } = scene({ suppressMs: 0 });
+	await writeSkill(h, HOST);
+	await h.get("tools/post-execute")({ name: "skill", arguments: { name: "darwin-skill" } }, {}, async () => {});
+	const text = await sectionText(h);
+	ok(pendingBlock(text).includes(HOST), "只加载未回写结果时 pending 保留，下轮仍提");
+	const st = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+	ok(st.unfinished?.[HOST] >= 1, "未完成次数记入 state.unfinished");
+}
+
+// ---- 8. darwin-skill 本体未安装：告警而非空转（WO-EVO-5）
+{
+	seq += 1;
+	const bare = path.join(root, `bare-${seq}`);
+	fs.mkdirSync(path.join(bare, "lonely"), { recursive: true });
+	fs.writeFileSync(path.join(bare, "lonely", "SKILL.md"), "---\nname: lonely\ndescription: d\n---\nbody");
+	const warns = [];
+	const h = new Map();
+	const ctx = { on: (ev, fn) => h.set(ev, fn), logger: { info: () => {}, warn: (m) => warns.push(String(m)) } };
+	const stateFile = path.join(root, `state-bare-${seq}.json`);
+	fs.writeFileSync(stateFile, JSON.stringify({ scores: {}, lastSweep: Date.now() }));
+	applyDarwin(ctx, { roots: [bare], stateFile, familyFile: path.join(root, "families-bare.json"), familyRefreshDays: 0, sweepHours: 999 }, {});
+	await h.get("tools/post-execute")({ name: "write", arguments: { file_path: path.join(bare, "lonely", "SKILL.md") } }, {}, async () => {});
+	const text = await sectionText(h);
+	ok(text.includes("darwin-skill 本体未安装"), "未装本体时注入告警段");
+	ok(!text.includes("9 维 rubric"), "未装本体时不再给评估步骤");
+	ok(warns.some((w) => w.includes("darwin-skill 本体未安装")), "未装本体时打 warning 日志");
 }
 
 // ---- 5. enabled:false 完全不挂
