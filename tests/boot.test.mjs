@@ -236,15 +236,11 @@ console.log("\n[5] 客户端面板分组渲染");
     return found;
   };
 
-  // 分组视图（默认）
-  const groupedView = collect(Panel());
-  assert(groupedView.headers.length === 2, "分组视图渲染 2 个组标题: " + groupedView.headers.map((p) => p.label).join(","));
-  const creative = groupedView.headers.find((p) => p.label === "内容创作");
-  const ungrouped = groupedView.headers.find((p) => p.label === "未分组");
-  assert(creative && creative.count === 2, "「内容创作」组含 2 个 skill");
-  assert(ungrouped && ungrouped.count === 1, "「未分组」组含 1 个 skill");
-  assert(creative && creative.open === true, "组默认展开");
-  assert(groupedView.rows.length === 3 && groupedView.rows.every((p) => p.showGroup === false), "分组视图不加分组徽章（避免重复信息）");
+  // 默认渲染：分类只是筛选维度，列表恒平铺（client.js:1971-1972），groups 恒为单个 __all__（:2116）
+  const defaultView = collect(Panel());
+  assert(defaultView.headers.length === 0, "默认渲染不渲染组标题: " + defaultView.headers.map((p) => p.label).join(","));
+  assert(defaultView.rows.filter((p) => p.skill.group === "内容创作").length === 2, "「内容创作」的 2 个 skill 平铺成行");
+  assert(defaultView.rows.filter((p) => p.skill.group === "").length === 1, "「未分组」的 1 个 skill 平铺成行");
 
   // 平铺视图（groupView=false 恒成立，见 client.js:1972）
   stateIndex = 0;
