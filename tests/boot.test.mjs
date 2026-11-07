@@ -185,8 +185,10 @@ console.log("\n[5] 客户端面板分组渲染");
     { name: "b-skill", description: "乙", group: "内容创作", tags: [], source: "user-agents", provider: "filesystem", modelInvocable: true, userInvocable: true, editable: true },
     { name: "c-skill", description: "丙", group: "", tags: [], source: "runtime", provider: "runtime", modelInvocable: true, userInvocable: true, editable: false }
   ];
-  // 依次对应组件内 useState 的调用顺序（skills/cwd/selected/draft/busy/msg/err/query/groupView/collapsed）
-  const stateQueue = [sampleSkills, "/tmp/ws", null, "", false, "", "", "", true, {}];
+  // 依次对应 SkillManagerPanel 的 16 个 useState（client.js:1954-1974）：
+  // skills/cwd/selected/draft/busy/msg/err/page/pageInput/view/
+  // sourceFilter/activeFilter/trash/query/groupFilter/collapsed
+  const stateQueue = [sampleSkills, "/tmp/ws", null, "", false, "", "", 0, "1", "skills", "all", "all", null, "", "all", {}];
   let stateIndex = 0;
   const fakeReact = {
     createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat() }),
@@ -238,17 +240,15 @@ console.log("\n[5] 客户端面板分组渲染");
   assert(creative && creative.open === true, "组默认展开");
   assert(groupedView.rows.length === 3 && groupedView.rows.every((p) => p.showGroup === false), "分组视图不加分组徽章（避免重复信息）");
 
-  // 平铺视图（groupView=false）
+  // 平铺视图（groupView=false 恒成立，见 client.js:1972）
   stateIndex = 0;
-  stateQueue[8] = false;
   const flatView = collect(Panel());
   assert(flatView.headers.length === 0, "平铺视图不渲染组标题");
   assert(flatView.rows.length === 3 && flatView.rows.every((p) => p.showGroup === true), "平铺视图给每行加分组徽章");
 
   // 折叠状态（collapsed 非空）
   stateIndex = 0;
-  stateQueue[8] = true;
-  stateQueue[9] = { "内容创作": true };
+  stateQueue[15] = { "内容创作": true };
   const foldedView = collect(Panel());
   const foldedCreative = foldedView.headers.find((p) => p.label === "内容创作");
   assert(foldedCreative && foldedCreative.open === false, "collapsed 里的组显示为折叠");
