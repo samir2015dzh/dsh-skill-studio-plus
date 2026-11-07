@@ -155,7 +155,7 @@ prev !== undefined && prev.sha256 === sha256 && prev.ref === parsed.ref
 ```
 source 为空                          → failed（无可拉取的来源）
 entrySource(entry) 重建来源串         → 解析/下载失败、包内没有 SKILL.md → failed
-目标目录 <targetDir>/<name> 不存在    → importSkill(force:true) → pulled
+目标目录 <targetDir>/<name> 不存在    → importSkill → pulled
 目标目录存在，且源里的文件逐字节相同   → satisfied（lock 缺失/不符时补写）
 目标目录存在，内容与源不同            → conflict，一个字节都不写
 ```
@@ -179,11 +179,19 @@ entrySource(entry) 重建来源串         → 解析/下载失败、包内没�
 - 只在所有条目处理完之后写一次，`tmp` + `rename` 原子替换：中途崩溃时原清单不动，
   未完成条目一条不丢；已成功的条目下次会再被判成 satisfied，不会重复破坏。
 
-### 与 `importSkill` 的两处接口
+### 与 `importSkill` 的接口
 
 1. `importSkill` 新增 `pkg` 入参：传已用 `resolveSkillPackage(source)` 取好的包，
    避免消费端判定完再下载一遍；
-2. `importSkill` 新增 `force` 入参：`pulled` 分支必须跳过「lock 说同 ref 同内容就跳过」的短路。
-   否则锁从快照恢复回来、目标机却空着时，导入会直接返回 `changed:false` 而不写文件 ——
-   PULL-3 的矩阵第一版就踩到了这个坑（`pulled` 计数为真、磁盘上没目录）。
+2. `importSkill` 的 lock 短路以**目标目录真实存在**为前提（F-1）：只有「锁里 `sha256` 与
+   `ref` 都匹配 **且** `<targetDir>/<name>` 是个真实目录」才返回 `changed:false`；
+   目录不存在时必须走完整下载 + 写盘。消费端因此不需要任何额外开关。
+
+### 这条防线的来历（保留原始踩坑记录）
+
+PULL-3 的矩阵第一版里，`pull-a` 的 `pulled` 计数为真、磁盘上却没有目录：锁随快照恢复回来了、
+`importSkill` 认为「同 ref 同内容」直接返回 `changed:false`，一个文件都没写。
+当时的处置是给 `importSkill` 加 `force` 入参、由消费端自己绕过；F-1 把这层防线收进本体，
+`force` 已删除 —— 判定「锁说装过」与「磁盘上真有」是否一致，是导入端自己的职责，
+不该让每个调用方各记一条规矩。
 
