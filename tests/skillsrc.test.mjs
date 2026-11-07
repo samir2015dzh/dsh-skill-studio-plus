@@ -77,5 +77,26 @@ function lockFileHasStructuredField(table, name) {
 }
 
 rmSync(home, { recursive: true, force: true });
+
+// ---- 4. M-3：codeload 下载的网络类重试（替身 fetch，伪 HOME）
+const retryHome = mkdtempSync(path.join(os.tmpdir(), "dsh-studio-retry-"));
+const retryRun = spawnSync(process.execPath, [path.join(here, "fixtures", "import-retry-home.mjs")], {
+	env: { ...process.env, USERPROFILE: retryHome, HOME: retryHome },
+	encoding: "utf8"
+});
+if (retryRun.status !== 0) {
+	console.error(retryRun.stderr || retryRun.stdout);
+	rmSync(retryHome, { recursive: true, force: true });
+	process.exit(1);
+}
+const retry = JSON.parse(retryRun.stdout);
+ok(retry.flakyResult?.ok === true && retry.flakyResult?.changed === true, "首次 ECONNRESET 后重试导入成功: " + retry.flakyResult?.name);
+ok(retry.flakyCalls === 2, "网络错只重试一次就成功，fetch 恰好调用 2 次（实际 " + retry.flakyCalls + "）");
+ok(retry.imported === true, "重试成功后文件真的落地");
+ok(retry.serverResult?.ok === true && retry.serverCalls === 2, "首次 503 也重试（调用 " + retry.serverCalls + " 次）");
+ok(retry.missingCalls === 1, "404 不重试，只调用 1 次（实际 " + retry.missingCalls + "）");
+ok(/HTTP 404/.test(retry.missingMessage), "404 的报错原文保留: " + retry.missingMessage);
+rmSync(retryHome, { recursive: true, force: true });
+
 console.log(fails === 0 ? "\n=== ALL PASS" : `\n=== ${fails} FAILED`);
 process.exitCode = fails ? 1 : 0;
