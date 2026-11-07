@@ -136,7 +136,13 @@ assert(registered.tools.includes("skillmgr_extract_run") && registered.tools.inc
 assert(registered.routes.length === 10, "10 条路由注册（3 skill + 7 提取）");
 assert(registered.sections.length === 1, "系统提示段落注册");
 
-const merged = await listSkills(ctx, tmp);
+// runtime skill 走 registry 摘要缓存（index.js:381-415）：首次 listSkills 只触发后台预热，
+// 结果下一次调用才可见，且不能依赖上次运行留下的磁盘缓存——这里显式等预热落地。
+let merged = await listSkills(ctx, tmp);
+for (let i = 0; i < 200 && !merged.some((s) => s.name === "vision-tools"); i++) {
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  merged = await listSkills(ctx, tmp);
+}
 const mergedNames = merged.map((s) => s.name);
 assert(mergedNames.includes("demo-skill") && mergedNames.includes("brainstorming"), "合并含文件系统 skill");
 assert(mergedNames.includes("vision-tools"), "合并含 runtime skill");
