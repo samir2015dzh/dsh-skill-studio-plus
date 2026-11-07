@@ -131,10 +131,11 @@ const ctx = {
   on: () => () => {}
 };
 m.apply(ctx, {});
-assert(registered.tools.length === 26 && registered.tools.slice(0, 4).join(",") === "skillmgr_list,skillmgr_get,skillmgr_save,skillmgr_policy", "26 个工具注册（21 skillmgr + 5 mcp），首四名不变");
+assert(registered.tools.length === 27 && registered.tools.slice(0, 4).join(",") === "skillmgr_list,skillmgr_get,skillmgr_save,skillmgr_policy", "27 个工具注册（22 skillmgr + 5 mcp），首四名不变");
 assert(registered.tools.includes("skillmgr_extract_run") && registered.tools.includes("skillmgr_extract_accept"), "提取工具已注册");
 assert(registered.tools.includes("skillmgr_update_check"), "只读上游检查工具已注册（U-2）");
 assert(registered.tools.includes("skillmgr_quality"), "只读质量度量工具已注册（Q-2）");
+assert(registered.tools.includes("skillmgr_pull_pending"), "消费待拉清单的工具已注册（PULL-2）");
 assert(registered.routes.length === 32, "32 条路由注册（16 基础 + 9 提取 + 7 MCP）");
 assert(registered.sections.length === 1, "系统提示段落注册");
 

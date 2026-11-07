@@ -144,3 +144,46 @@ prev !== undefined && prev.sha256 === sha256 && prev.ref === parsed.ref
 | 字段 `name/repo/ref/sha/subPath` | 清单里是 `name/source/ref/sha/subdir`；`repo` 在包内清单才叫 `repo`，落到待拉清单时改名 `source`；`subPath` 是 `skill-lock.json` 的字段名，清单里叫 `subdir` |
 | 「restore 时把待拉清单写成 PENDING_PULLS.json 并只做提示」 | 与代码一致；位置是外部 skill 根（不是 `~/.dsh`），且 dry-run 不写 |
 | 「只记链接的大 skill」 | 门槛是**目录总大小 > 5 MB** 且来源可判定；来源不可判定时保底打包，不做链接化 |
+
+## 8. 消费端口径（PULL-2）
+
+工具 `skillmgr_pull_pending`（`lib/pending.js` 的 `pullPending`）是清单唯一的消费入口。
+恢复本身不联网；只有这个显式动作会下载。
+
+### 单条判定顺序
+
+```
+source 为空                          → failed（无可拉取的来源）
+entrySource(entry) 重建来源串         → 解析/下载失败、包内没有 SKILL.md → failed
+目标目录 <targetDir>/<name> 不存在    → importSkill(force:true) → pulled
+目标目录存在，且源里的文件逐字节相同   → satisfied（lock 缺失/不符时补写）
+目标目录存在，内容与源不同            → conflict，一个字节都不写
+```
+
+`satisfied` 的判据是**磁盘内容与源逐字节比对**，不是「lock 说装过」：锁可能是从快照恢复的，
+而目标机上根本没有这个目录（真机冷恢复的常态）。`lock` 只用于两件事：conflict 时给出
+「锁里记的是什么」，以及 satisfied 时把不一致的锁补齐（`relocked`）。
+
+`entrySource` 的重建规则：
+
+| 清单里的 `source` | 处理 |
+| --- | --- |
+| 本地 `.tar.gz`/`.tgz` 路径 | 原样交给 `parseSkillSource` |
+| 已带 `/tree/<ref>/<subdir>` 的地址 | 原样 |
+| GitHub 仓库根 `https://github.com/<o>/<r>` | 拼回 `<root>/tree/<ref>/<subdir>`；`ref` 为空且 `sha` 是 40 位 commit 时用 `sha` 当 ref，否则用 `HEAD` |
+
+### 清单写回
+
+- `pulled` 与 `satisfied` 消项；`conflict` 与 `failed` 原样保留（含原始字段，不做规整）；
+- 全部消完 → 删掉清单文件（文件不存在 = 无待拉项，与 §6 的空结果同一条路径）；
+- 只在所有条目处理完之后写一次，`tmp` + `rename` 原子替换：中途崩溃时原清单不动，
+  未完成条目一条不丢；已成功的条目下次会再被判成 satisfied，不会重复破坏。
+
+### 与 `importSkill` 的两处接口
+
+1. `importSkill` 新增 `pkg` 入参：传已用 `resolveSkillPackage(source)` 取好的包，
+   避免消费端判定完再下载一遍；
+2. `importSkill` 新增 `force` 入参：`pulled` 分支必须跳过「lock 说同 ref 同内容就跳过」的短路。
+   否则锁从快照恢复回来、目标机却空着时，导入会直接返回 `changed:false` 而不写文件 ——
+   PULL-3 的矩阵第一版就踩到了这个坑（`pulled` 计数为真、磁盘上没目录）。
+
