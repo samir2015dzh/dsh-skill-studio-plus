@@ -4,6 +4,100 @@
 > 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 > 说明：0.2.0 及更早的条目依据 git 历史与 npm 发布时间回填。
 
+## [1.0.0] - 2026-11-07
+
+首个稳定版。0.8.0 之后的一整轮改进计划全部落地：安全、自动进化、跨机迁移、上游检查、
+质量度量、导入来源、测试七条线，工具集与数据格式按此版本定稿。
+
+### 安全加固
+
+- **快照字段级脱敏**：打包时把凭据文件里的敏感字段（token / secretKey / password 等）值换成
+  `__dsh_studio_redacted__` 占位符，命中清单写进包内 `REDACTED.json`；JSON 解析失败的文件整份
+  排除并同样记录。**恢复时占位符绝不写回**——目标机该字段已有值时保留本机现值，没有才落空，
+  所以快照推到 git / gist / s3 也不会把别处凭据带过来
+- **凭据只在构造处出现一次**：面板 state、HTTP JSON、工具返回值、日志一律只拿掩码（中间打点 +
+  尾 4 位），明文只走单个回环路由；敏感键名收敛到 `lib/redact.js` 一处，快照、MCP、工具三处共用同一份
+- **MCP 路由回环与同源守卫**：所有 MCP 写路由统一校验来源为回环地址 + 同源 Origin，
+  跨站页面构造的请求不再能改注册表
+- **敏感文件 0600 落盘**：`sync.json`、`mcp.json`、`skill-lifecycle.json`、provenance 文件、
+  `last-llm-raw.txt` 以及恢复写盘的凭据文件统一 0600 并走 `hardenPermissions()`
+- **运行期信息掩码**：中间态里的凭据值同样只以掩码出现——同步通道配置视图、MCP 服务器条目描述、
+  工具渲染文案都走 `maskSecret()`，日志与返回值里不留原文
+
+### 技能自动进化修复
+
+- **frontmatter 原地改写**：合并与优化改写 `SKILL.md` 时保留原 frontmatter，用户手写的
+  `disable-model-invocation`、`user-invocable`、`protected`、`metadata.*` 不再被整份覆盖；
+  索引补解析 `group` / `tags`
+- **Darwin 触发条件收窄**：只在写类工具（write / edit / apply_patch / write_file / multi_edit）
+  真正改动 SKILL.md 时记 pending，读操作与无关写入不再触发；范围限两棵 skill 根
+  （`~/.agents/skills`、`~/.dsh/skills`）
+- **Darwin 总开关**：`enabled` 默认开，关掉即不注入任何提示；加载 darwin-skill 后静默 15 分钟
+  防自激，pending 6 小时过期，24 小时巡检一次、每次最多 5 条
+- **评测硬性两条**：① 评估前先建/查同目录 `test-prompts.json`，没有就先生成 2–3 条能验证该
+  skill 的测试提示词再打分；② keep/revert 只认 paired 多数决（同一 judge 成对比较 + 奇数 N
+  多数票），绝对分有 ±8 噪音，只用来排序、不当判据
+- **闭环补全**：待办项处理后能回收结果，配对判据与「本体缺失」告警都给出明确状态，不再静默丢结果
+- **autoAccept 默认开启**：提取候选默认直接落库，不必每次点确认
+- **优化路径去掉确认门**：记住/优化类请求先本地分类，能判定唯一类别就直接落位
+  （含整行命令切分、只读感知删除、no-op 快路），不再先问一遍
+- **候选保留分组**：提取候选带 `group` 并按 8 类校验，落库后不再全部堆进「未分组」
+
+### 快照瘦身与跨机迁移
+
+- **大 skill 只记链接**：skill 体积超过阈值且来源可确定时，快照只记仓库链接（含子目录来源）到
+  `EXTERNAL_SKILLS.json`，不再把内容打进包
+- **恢复只出清单、不替你联网**：恢复后生成 `PENDING_PULLS.json`，列出「只记了链接」的那些 skill，
+  恢复端自己决定何时拉
+- **一键拉取**：新增工具 `skillmgr_pull_pending`，消费清单逐条拉取并写回 lock；逐条独立成败，
+  已存在且内容一致的记 `satisfied` 跳过，同名但内容不一致的记 `conflict` 且不覆盖
+- **大文件跳过清单**：skill 根下的超大文件（GIF / PNG 之类）不进包，改记进 `SKIPPED.json` 并写明
+  原因；`.git` / `.svn` / `.hg` 直接跳过、不占清单
+- **恢复落点跟随配置**：快照白名单与恢复落点都取 `agentSkillDir`，改过 skill 根也不再漏备主库
+- **计数口径统一**：`countFiles` 与 `collectFiles` 对跳过项按同一口径计数，manifest 里的数字不再
+  自相矛盾
+
+### 上游更新检查
+
+- **新增 `skillmgr_update_check`**：只读比对已装 skill 与其来源仓库的最新提交，双口径计数——
+  「已查」是本次真正比过的条数，「全库」是锁文件里的全部条数，两者分别报，不混成一个百分比
+- **每轮最多联网 3 次**：`ls-remote` 一轮对话上限 3 次，超出静默跳过、不报错；结果缓存 10 分钟，
+  缓存命中不计次
+- **Darwin 优化前先看上游**：有新版就在评测提示里点出来，避免白改一遍
+- **下载退避**：codeload 拉包对网络类错误退避重试 2 次，4xx 直接失败不重试
+- **lock 短路更严**：同 ref 同内容跳过的前提是目标目录真实存在，删掉目录后不会再假跳过
+
+### 提取质量指标与数据地基
+
+- **新增 `skillmgr_quality`**：只读聚合提取漏斗、SAVE 队列的使用 / 活跃 / 归档比例、候选积压与
+  历史接受 / 拒绝。分母为 0、数据缺失时报 `available:false` + 原因，比例给 `null` 而不是 0
+- **裁决事件流水**：provenance 除按名覆盖的最新裁决外，另追加 append-only 的
+  `provenance-events.jsonl`（一行一条 `at` / `name` / `action` / `rationale`）。漏斗改按事件计数，
+  同一个名字先 SAVE 后 FOLD_INTO 的历史可以复盘；没有这份流水的旧数据自动回退「按名最新裁决」
+  口径，两种口径在输出里标明
+- **候选终局归档**：接受 / 拒绝的候选不再直接删掉，写进 `candidates-archive.json`（带 `decision`
+  与 `decidedAt`），滚动上限 500 条、超出丢最旧；质量度量据此报历史接受 / 拒绝，无归档时报不可得
+- **首次使用与使用次数**：lifecycle 补 `firstUsedAt`（首次使用，只写一次）与 `useCount`
+  （每次 +1），据此给出「首次使用距入库中位数」（入库时间口径 = 同名最早一次 SAVE 事件的 `at`）
+  与「平均使用次数」；老状态文件缺这两个字段时如实报不可得
+
+### 技能导入与来源锁
+
+- **从仓库导入**：支持 `https://github.com/<owner>/<repo>[/tree/<ref>[/<subPath>]]` 与本地
+  `.tar.gz`，按子目录收窄后取 SKILL.md，导入完成写 `~/.dsh/dsh-studio/skill-lock.json`
+- **来源锁结构化**：lock 记录 `source`（仓库根）/ `ref` / `subPath` / `sha256` / `at`，子目录不再是
+  拼在 URL 里的字符串；旧记录里的 tree URL 读侧照样能归一
+- **跳过判据**：同 ref、内容 sha256 相同、且目标目录确实存在时才跳过，否则重装并更新 lock
+
+### 测试现代化
+
+- **六套测试串联**：`npm test` = darwin / boot / upstream / skillsrc / quality / pull，
+  任一失败即整体非 0 退出
+- **boot 套件按平铺视图重写**：分组视图折叠态的场景改为平铺口径断言（headers 0 / rows 3），
+  工具数 24、路由数 32 与现状对齐；`ctx` 桩补 `on`，路径断言按分隔符比对
+- **临时 HOME 隔离**：boot 全程在 `mkdtemp` 出的临时 HOME 下跑，预热轮询不再写真实
+  `registry-cache.json`；quality / pull 各自带伪 HOME fixture，真机路径只读
+
 ## [0.8.0] - 2026-11-05
 
 ### 改进（2026-11-06 补记）
