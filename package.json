@@ -40,7 +40,7 @@
     "verify": "node scripts/portability.mjs --health /api/dsh-studio/list",
     "verify:full": "node scripts/portability.mjs --health /api/dsh-studio/list --stability 30",
     "verify:quick": "node scripts/portability.mjs --skip-audit --stability 5 --health /api/dsh-studio/list",
-    "test": "node tests/darwin.test.mjs && node tests/boot.test.mjs && node tests/upstream.test.mjs && node tests/skillsrc.test.mjs && node tests/quality.test.mjs",
+    "test": "node tests/darwin.test.mjs && node tests/boot.test.mjs && node tests/upstream.test.mjs && node tests/skillsrc.test.mjs && node tests/quality.test.mjs && node tests/pull.test.mjs",
     "test:boot": "node tests/boot.test.mjs"
   },
   "keywords": [
