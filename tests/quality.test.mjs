@@ -117,6 +117,31 @@ ok(history.withEvents.history.cap === 500 && /归档上限 500 条/.test(history
 ok(history.capResult.dropped === 2 && history.capResult.total === 500, `超过上限丢弃最旧 2 条（dropped=${history.capResult.dropped}, total=${history.capResult.total}）`);
 ok(history.archiveAfterCap.length === 500 && history.archiveAfterCap.first === "fill-0", "归档只留最近 500 条，最旧的是新批次第一条");
 
+// ---- 11. M-7：firstUsedAt 只写一次、useCount 每次 +1；中位数与平均使用次数解锁 ----
+const DAY_MS = 86_400_000;
+ok(history.lifecycle.useCount === 3, `同一 skill 标 3 次使用 → useCount=3（实际 ${history.lifecycle.useCount}）`);
+ok(
+	history.lifecycle.firstUsedAt === history.lifecycleAfterFirst.firstUsedAt && history.lifecycle.firstUsedAt === NOW - 5 * DAY_MS,
+	"firstUsedAt 停在第一次使用，不被后两次覆盖"
+);
+ok(history.lifecycle.lastUsedAt === NOW - DAY_MS, "lastUsedAt 语义不变：跟着最后一次使用走");
+ok(history.lifecycleAfterFirst.useCount === 1, "第一次用完 useCount 就是 1");
+ok(history.legacy?.lastUsedAt === NOW - 20 * DAY_MS && history.legacy.firstUsedAt === undefined, "老格式 lifecycle 条目读入不报错、字段不被改写");
+ok(
+	history.withEvents.cohort.medianDaysToFirstUse.available === true && history.withEvents.cohort.medianDaysToFirstUse.value === 3,
+	`首次使用距入库中位数可算 = 3 天（实际 ${history.withEvents.cohort.medianDaysToFirstUse.value}）`
+);
+ok(
+	history.withEvents.cohort.avgUseCount.available === true && history.withEvents.cohort.avgUseCount.value === 3,
+	`平均使用次数可算 = 3（实际 ${history.withEvents.cohort.avgUseCount.value}）`
+);
+ok(/首次使用距入库 3 天/.test(history.withEvents.summary) && /均用 3 次/.test(history.withEvents.summary), "一行摘要带中位数与平均使用次数");
+ok(
+	full.cohort.avgUseCount.available === false && /useCount/.test(full.cohort.avgUseCount.reason),
+	"老数据没有 useCount → 平均使用次数报不可得: " + full.cohort.avgUseCount.reason
+);
+ok(full.unavailable.some((u) => u.metric === "平均使用次数"), "不可得的平均使用次数进入 unavailable 清单");
+
 rmSync(historyHome, { recursive: true, force: true });
 
 rmSync(home, { recursive: true, force: true });

@@ -51,6 +51,16 @@ const rejectResult = await tools.get("skillmgr_extract_reject").execute({ ids: [
 const queueAfter = await loadCandidates();
 const archive = await loadCandidateArchive();
 
+// ---- M-7：先塞一条老格式 lifecycle 记录（没有 firstUsedAt / useCount），再对同一 skill 标 3 次使用
+const { markSkillUsed, loadState, saveState } = await import(pathToFileURL(path.join(pluginRoot, "lib", "lifecycle.js")).href);
+await saveState({ legacy: { lastUsedAt: now - 20 * DAY, status: "active", lastCheckAt: now - 20 * DAY } });
+await markSkillUsed("kept-save", now - 5 * DAY);
+const lifecycleAfterFirst = (await loadState())["kept-save"];
+await markSkillUsed("kept-save", now - 3 * DAY);
+await markSkillUsed("kept-save", now - 1 * DAY);
+const lifecycle = (await loadState())["kept-save"];
+const legacy = (await loadState()).legacy;
+
 // ---- 聚合（事件流水在的时候）
 const withEvents = await collectQualityMetrics({ now });
 
@@ -77,6 +87,10 @@ process.stdout.write(
 		rejectResult,
 		queueAfter,
 		archive,
+		now,
+		lifecycleAfterFirst,
+		lifecycle,
+		legacy,
 		capResult,
 		cap: CANDIDATE_ARCHIVE_LIMIT,
 		archiveAfterCap: { length: archiveAfterCap.length, first: archiveAfterCap[0]?.name, last: archiveAfterCap[archiveAfterCap.length - 1]?.name }
