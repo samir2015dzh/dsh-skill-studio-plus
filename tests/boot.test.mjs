@@ -110,7 +110,7 @@ assert(found && found.path.endsWith(path.join("brainstorming", "SKILL.md")), "fi
 
 // ---------- 3. 模拟 boot apply + 合并 ----------
 console.log("\n[3] 模拟 boot apply + 合并");
-const registered = { tools: [], routes: [], sections: [] };
+const registered = { tools: [], routes: [], sections: [], defs: {} };
 const ctx = {
   skills: {
     // registry 视角：一个 runtime skill；无 filesystem provider
@@ -120,7 +120,7 @@ const ctx = {
     ],
     get: async () => undefined
   },
-  tools: { register: (t) => { registered.tools.push(t.name); return () => {}; } },
+  tools: { register: (t) => { registered.tools.push(t.name); registered.defs[t.name] = t; return () => {}; } },
   webServer: { register: (r) => { registered.routes.push(r.path); return () => {}; } },
   systemPrompt: { section: (s) => { registered.sections.push(s.name); return () => {}; } },
   effect: (fn) => { const d = fn(); return () => (typeof d === "function" ? d() : undefined); },
@@ -136,6 +136,14 @@ assert(registered.tools.includes("skillmgr_extract_run") && registered.tools.inc
 assert(registered.tools.includes("skillmgr_update_check"), "只读上游检查工具已注册（U-2）");
 assert(registered.tools.includes("skillmgr_quality"), "只读质量度量工具已注册（Q-2）");
 assert(registered.tools.includes("skillmgr_pull_pending"), "消费待拉清单的工具已注册（PULL-2）");
+
+// M-2：全库口径（含 SKILL.md 的目录 / 跟随符号链接 / 按真实路径去重）必须写进工具描述
+const updateCheckDesc = String(registered.defs.skillmgr_update_check?.description ?? "");
+assert(
+  ["含 SKILL.md 的目录", "跟随符号链接", "按真实路径去重"].every((key) => updateCheckDesc.includes(key)),
+  "update_check 描述注明全库口径"
+);
+console.log("  ℹ skillmgr_update_check.description（注册原文）= " + updateCheckDesc);
 assert(registered.routes.length === 32, "32 条路由注册（16 基础 + 9 提取 + 7 MCP）");
 assert(registered.sections.length === 1, "系统提示段落注册");
 
