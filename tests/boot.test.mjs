@@ -1,6 +1,6 @@
 // 模拟 boot 加载测试 + 扫描器/合并/编辑逻辑单测（检查清单第 2 条）
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, existsSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -8,6 +8,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pluginRoot = path.resolve(__dirname, "..");
 // Windows 上 import() 不接受裸盘符路径，必须转成 file:// URL
 const modUrl = (rel) => pathToFileURL(path.join(pluginRoot, rel)).href;
+
+// M-4：全程在临时 HOME 下跑 —— 预热轮询会写 registry-cache.json，
+// 绝不能落到真实 ~/.dsh/dsh-studio/ 上去。必须在 import lib/index.js 之前设好。
+const realHome = homedir();
+const fakeHome = mkdtempSync(path.join(tmpdir(), "dsh-sm-home-"));
+process.env.USERPROFILE = fakeHome;
+process.env.HOME = fakeHome;
+
 const m = await import(modUrl("lib/index.js"));
 const scanner = await import(modUrl("lib/scanner.js"));
 
@@ -162,6 +170,21 @@ assert(vt && vt.editable === false && vt.provider === "runtime", "runtime skill 
 assert(merged.find((s) => s.name === "grouped-skill").group === "内容创作", "listSkills 透出分组（面板与工具可见）");
 assert(merged.find((s) => s.name === "grouped-skill").tags.length === 2, "listSkills 透出标签");
 
+// M-4：预热写出的 registry 缓存必须落在临时 HOME 里
+const fakeCache = path.join(fakeHome, ".dsh", "dsh-studio", "registry-cache.json");
+for (let i = 0; i < 200 && !existsSync(fakeCache); i++) await new Promise((resolve) => setTimeout(resolve, 10));
+assert(fakeHome !== realHome, "临时 HOME 与真实 HOME 不是同一路径");
+assert(existsSync(fakeCache), "registry 缓存写到临时 HOME: " + fakeCache);
+
+// M-2 的输出口径：临时 HOME 下没有 skill 根，execute 不发任何 ls-remote
+const emptyRoot = path.join(fakeHome, "empty-root");
+mkdirSync(emptyRoot, { recursive: true });
+const updateCheckRun = await registered.defs.skillmgr_update_check.execute({ root: emptyRoot });
+assert(
+  /含 SKILL\.md 的目录，跟随符号链接，按真实路径去重/.test(String(updateCheckRun.message)),
+  "update_check 汇总带全库口径注脚: " + updateCheckRun.message
+);
+
 // ---------- 4. 真实文件读写（编辑 + 开关） ----------
 console.log("\n[4] 真实文件读写");
 const detail = await getSkillDetail(ctx, "demo-skill", tmp);
@@ -267,5 +290,6 @@ console.log("\n[5] 客户端面板分组渲染");
   assert(foldedView.rows.length === 3, "collapsed 非空时行数不变");
 }
 
+rmSync(fakeHome, { recursive: true, force: true });
 console.log(failures === 0 ? "\n🎉 全部通过" : `\n💥 ${failures} 项失败`);
 process.exit(failures === 0 ? 0 : 1);
