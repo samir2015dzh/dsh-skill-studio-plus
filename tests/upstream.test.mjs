@@ -65,5 +65,26 @@ ok(!(result.skills ?? []).some((s) => s.name === "plain"), "无上游线索的 s
 ok((result.skills ?? []).length === 4, "结果只列可判定的 4 个: " + (result.skills ?? []).length);
 
 rmSync(home, { recursive: true, force: true });
+
+// ---- M-1 每轮联网上限：4 个不同上游只发 3 次 ls-remote，第 4 个静默；缓存命中不计次
+const budgetHome = mkdtempSync(path.join(os.tmpdir(), "dsh-studio-budget-"));
+const budgetRun = spawnSync(process.execPath, [path.join(here, "fixtures", "upstream-budget-home.mjs")], {
+	env: { ...process.env, USERPROFILE: budgetHome, HOME: budgetHome },
+	encoding: "utf8",
+});
+if (budgetRun.status !== 0) {
+	console.error(budgetRun.stderr || budgetRun.stdout);
+	rmSync(budgetHome, { recursive: true, force: true });
+	process.exit(1);
+}
+const budget = JSON.parse(budgetRun.stdout);
+ok(budget.seqUsed === 3, "4 个不同上游顺序检查只联网 3 次（budget.used = " + budget.seqUsed + "）");
+ok(budget.seq.slice(0, 3).every((h) => h.includes("上游已有新版")), "前 3 个都给出上游提示");
+ok(budget.seq[3] === "", "第 4 个被预算挡下 → 静默无提示: " + JSON.stringify(budget.seq[3]));
+ok(budget.parUsed === 3, "并发（darwin 真实形态）下总量仍是 3 次联网（budget.used = " + budget.parUsed + "）");
+ok(budget.par.filter((h) => h !== "").length === 3, "并发下恰好 3 个有提示、1 个静默");
+ok(budget.cacheUsed === 0 && budget.cached.every((h) => h.includes("上游已有新版")), "10 分钟 TTL 缓存命中不计次（再次检查 3 个仓库仍出提示，budget.used = " + budget.cacheUsed + "）");
+rmSync(budgetHome, { recursive: true, force: true });
+
 console.log(fails === 0 ? "\n=== ALL PASS" : `\n=== ${fails} FAILED`);
 process.exitCode = fails ? 1 : 0;
